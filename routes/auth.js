@@ -20,12 +20,16 @@ const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
 // Firebase Admin Init
-if (!admin.apps.length) {
+try {
     const serviceAccountPath = path.resolve(__dirname, '../service-account.json');
+
     admin.initializeApp({
-        credential: admin.credential.cert(serviceAccountPath),
+        credential: admin.credential.cert(require(serviceAccountPath)),
     });
+
     console.log('Firebase Admin initialized');
+} catch (err) {
+    console.log('Firebase already initialized');
 }
 
 // === NOTIFICATION HELPER FUNCTION (FOR TOURNAMENT ALERTS) ===
