@@ -2,4 +2,3 @@ node_modules
 .env
 service-account.json
 *.log
-uploads

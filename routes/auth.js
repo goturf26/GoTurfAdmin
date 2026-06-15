@@ -170,19 +170,16 @@ function escapeRegExp(string) {
 }
 
 router.post('/login', async (req, res) => {
+    console.log('🔥 [LOGIN ROUTE HIT] Full Body:', JSON.stringify(req.body));
+
     const name = req.body.name?.trim();
     const email = req.body.email?.trim().toLowerCase();
-    
-    // 🚨 FIX: TRIM THE INCOMING PASSWORD IMMEDIATELY
-    // This ensures consistency with the signup route where you hash the TRIMMED password.
     const rawPassword = req.body.password;
-    const password = rawPassword ? rawPassword.trim() : null; 
+    const password = rawPassword ? rawPassword.trim() : null;
 
-    // Log incoming request (very helpful for debugging)
-    console.log('\nLOGIN ATTEMPT (FIXED)');
-    console.log('Name received :', name || '(not sent)');
-    console.log('Email received:', email || '(not sent)');
-    console.log('Password length (after trim):', password ? password.length : 0);
+    console.log('Name received:', name);
+    console.log('Email received:', email);
+    console.log('Password length:', password ? password.length : 0);
     // console.log('Raw Password:', rawPassword); // Uncomment for extreme debugging only!
 
     // Validation

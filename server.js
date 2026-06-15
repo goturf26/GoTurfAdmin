@@ -47,11 +47,13 @@ if (!process.env.GOOGLE_CLIENT_ID) {
 
 const app = express();
 
-// CORS configuration
+// CORS - Updated for Flutter + Render
 app.use(cors({
-  origin: '*', // Adjust for production
+  origin: '*',                    // Development-க்கு
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-refresh-token'],
+  credentials: true,
+  maxAge: 86400                   // 24 hours preflight cache
 }));
 
 const uploadsPath = path.join(__dirname, 'uploads');
