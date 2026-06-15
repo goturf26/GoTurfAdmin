@@ -23,15 +23,13 @@ console.log('File exists:', fs.existsSync(envPath));
 if (fs.existsSync(envPath)) {
   console.log('Raw .env content:', fs.readFileSync(envPath, 'utf8'));
 }
-dotenv.config({ path: envPath });
-console.log('Environment Variables:', {
-  PORT: process.env.PORT,
-  MONGODB_URI: process.env.MONGODB_URI ? '[REDACTED]' : undefined,
-  JWT_SECRET: process.env.JWT_SECRET ? '[REDACTED]' : undefined,
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? '[REDACTED]' : undefined,
-  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? '[REDACTED]' : undefined,
-  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL ? '[REDACTED]' : undefined,
-});
+// === DOTENV CONFIG - SIMPLIFIED FOR RENDER ===
+require('dotenv').config();  // ← இப்படி simple ஆ விடுங்க
+
+console.log('Environment Variables Loaded:');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✅ Present' : '❌ Missing');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? '✅ Present' : '❌ Missing');
+console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Present' : '❌ Missing');
 
 // Validate required environment variables
 if (!process.env.JWT_SECRET) {
@@ -58,14 +56,10 @@ app.use(cors({
 
 const uploadsPath = path.join(__dirname, 'uploads');
 
-app.use('/uploads', express.static(uploadsPath));
+// app.use('/uploads', express.static(uploadsPath));
 
 console.log('[STATIC] Serving /uploads from:', uploadsPath);
 
-
-// *** NEW LINE ADDED HERE ***
-// Serve turf gallery images publicly (critical for user app to load gallery photos)
-app.use('/uploads/turf-gallery', express.static(path.join(__dirname, 'uploads/turf-gallery')));
 
 // Body parsers (must be before routes)
 app.use(express.json({ limit: '10mb' }));
