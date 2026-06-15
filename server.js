@@ -88,7 +88,7 @@ connectDB()
 // Routes
 console.log('Registering routes at /api/admin');
 app.use('/api/admin', authRoutes);
-
+console.log("🔥 authRoutes loaded:", authRoutes);
 // Test route
 app.post('/api/admin/test', (req, res) => {
   res.status(200).json({ success: true, message: 'Test route working' });

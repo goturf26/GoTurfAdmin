@@ -21,7 +21,7 @@ const { cloudinary, upload } = require('../config/cloudinary');
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
-
+console.log("🔥 AUTH ROUTES FILE LOADED");
 // Firebase Admin Init
 try {
     const serviceAccountPath = path.resolve(__dirname, '../service-account.json');
