@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
 const authenticateToken = require('../middleware/auth');
-const multer = require('multer');
+const multer = require('multer'); // kept for handleMulterError
 const path = require('path');
 const fs = require('fs');
 const { MongoClient } = require('mongodb');
@@ -14,6 +14,9 @@ const mongoose = require('mongoose');
 const { ObjectId } = require('mongodb');
 const cron = require('node-cron');
 require('dotenv').config();
+
+// Cloudinary
+const { cloudinary, upload } = require('../config/cloudinary');
 
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI;
@@ -32,15 +35,12 @@ try {
     console.log('Firebase already initialized');
 }
 
-// === NOTIFICATION HELPER FUNCTION (FOR TOURNAMENT ALERTS) ===
+// === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
     if (!topic || !title || !body) return;
     
     const message = {
-        notification: {
-            title: title,
-            body: body,
-        },
+        notification: { title: title, body: body },
         data: data,
         topic: topic  
     };
@@ -53,41 +53,7 @@ async function sendNotificationToTopic(topic, title, body, data = {}) {
     }
 }
 
-
-// Multer Setup
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        // project root folder-ல uploads-ஐ use பண்ணு (guaranteed correct)
-        const uploadDir = path.join(process.cwd(), 'uploads');
-
-        console.log('[MULTER DEBUG] Trying to save in folder:', uploadDir);
-
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-            console.log('[MULTER DEBUG] Created uploads folder at:', uploadDir);
-        }
-
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-        const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-        
-        console.log('[MULTER DEBUG] Generated filename:', filename);
-
-        cb(null, filename);
-    },
-});
-
-const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-    } else {
-        cb(new Error('Only image files are allowed!'), false);
-    }
-};
-
-const upload = multer({ storage, fileFilter });
+// handleMulterError
 const handleMulterError = (err, req, res, next) => {
     if (err instanceof multer.MulterError || err) {
         return res.status(400).json({
@@ -99,7 +65,7 @@ const handleMulterError = (err, req, res, next) => {
     next();
 };
 
-// Token Refresh
+// Token Refresh + All Auth Routes (EXACT ORIGINAL)
 const authenticateRefreshToken = (req, res, next) => {
     const refreshToken = req.body.refreshToken || req.headers['x-refresh-token'];
     if (!refreshToken) {
@@ -133,11 +99,6 @@ router.post('/refresh-token', authenticateRefreshToken, async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
     }
 });
-
-// ——————————————————————————————————————
-// AUTH ROUTES
-// ——————————————————————————————————————
-
 
 router.post('/check-existence', async (req, res) => {
   const { email, phone, name } = req.body;
@@ -517,8 +478,9 @@ router.post('/update-bank-details', authenticateToken, async (req, res) => {
 });
 
 // ——————————————————————————————————————
-// TURF ROUTES - FIXED /add-turf WITH ALL FIELDS
+// TURF ROUTES - CLOUDINARY UPDATED
 // ——————————————————————————————————————
+
 router.post('/add-turf', authenticateToken, upload.single('image'), handleMulterError, async (req, res) => {
     try {
         const {
@@ -557,8 +519,8 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
-        // ★★★ RELATIVE PATH ONLY SAVE ★★★
-        const relativeImageUrl = `/uploads/${req.file.filename}`;
+        // Cloudinary Full URL
+        const imageUrl = req.file.path;
 
         // Generate unique turf ID
         const turfId = `${state.slice(0,2).toUpperCase()}${district.slice(0,3).toUpperCase()}${Math.floor(10000 + Math.random() * 90000)}`;
@@ -591,7 +553,7 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
             hasDrinkingFacilities: parseBool(hasDrinkingFacilities),
             gstin: gstin.trim(),
             license: license.trim(),
-            imageUrl: relativeImageUrl,        
+            imageUrl: imageUrl,        // ← Full Cloudinary URL
             heldSlots: [],
             heldDays: [],
             confirmedSlots: [],
@@ -611,11 +573,7 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
         adminUser.currentTurf = turfData;
         await adminUser.save();
 
-        // Response-ல frontend-க்கு full URL அனுப்பு
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
-        const fullImageUrl = `${baseUrl}${relativeImageUrl}`;
-
-        console.log(`Turf registered successfully: ${turfId} by ${adminId} | Image URL: ${relativeImageUrl}`);
+        console.log(`Turf registered successfully: ${turfId} by ${adminId} | Image URL: ${imageUrl}`);
 
         res.status(201).json({
             success: true,
@@ -623,7 +581,7 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
             turf: {
                 id: turfId,
                 turfName: turfData.turfName,
-                imageUrl: fullImageUrl   
+                imageUrl: imageUrl   // Full Cloudinary URL
             }
         });
 
@@ -636,6 +594,7 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
         });
     }
 });
+
 router.post('/update-turf', authenticateToken, async (req, res) => {
     try {
         const { turfId, pricePerHour, playingSurface, sports, hasLighting, hasWashroom, hasParking, hasDrinkingFacilities, operationStartTime, operationEndTime } = req.body;
@@ -801,83 +760,48 @@ router.get('/dashboard/:adminId/:turfId', authenticateToken, async (req, res) =>
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
-// ==================== ROUTE: UPDATE TURF IMAGE (FINAL FIXED VERSION) ====================
-router.post('/update-turf-image', authenticateToken, (req, res) => {
-  console.log('[/update-turf-image] Image upload request started');
-
-  upload.single('image')(req, res, async (err) => {
-    if (err) {
-      console.error('Multer error:', err.message);
-      if (err.message.includes('Only image files')) {
-        return res.status(400).json({ success: false, message: 'Only image files are allowed' });
-      }
-      return res.status(400).json({ success: false, message: err.message || 'File upload error' });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No image file provided' });
-    }
-
-    const { turfId } = req.body;
-    const adminId = req.admin.id;
-
-    console.log('File uploaded:', req.file.filename);
-    console.log('turfId:', turfId);
-    console.log('adminId:', adminId);
-
-    if (!turfId) {
-      fs.unlink(req.file.path, () => {}); // cleanup
-      return res.status(400).json({ success: false, message: 'turfId is required' });
-    }
+// ==================== ROUTE: UPDATE TURF IMAGE - CLOUDINARY VERSION ====================
+router.post('/update-turf-image', authenticateToken, upload.single('image'), handleMulterError, async (req, res) => {
+    console.log('[/update-turf-image] Cloudinary upload started');
 
     try {
-      const adminUser = await Admin.findOne({
-        _id: adminId,
-        'currentTurf.id': turfId
-      });
-
-      if (!adminUser || !adminUser.currentTurf) {
-        fs.unlink(req.file.path, () => {});
-        return res.status(404).json({ success: false, message: 'Turf not found or unauthorized' });
-      }
-
-      const turf = adminUser.currentTurf;
-
-      // Delete old image if exists
-      if (turf.imageUrl) {
-        const oldPath = path.join(__dirname, '..', 'uploads', path.basename(turf.imageUrl));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-          console.log('Old image deleted:', turf.imageUrl);
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No image file provided' });
         }
-      }
 
-      // ★★★ RELATIVE PATH ONLY SAVE ★★★
-      const relativeImageUrl = `/uploads/${req.file.filename}`;
+        const { turfId } = req.body;
+        const adminId = req.admin.id;
 
-      turf.imageUrl = relativeImageUrl;
-      await adminUser.save();
+        if (!turfId) {
+            return res.status(400).json({ success: false, message: 'turfId is required' });
+        }
 
-      // Response-ல frontend dashboard-க்கு full URL அனுப்பு
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const fullImageUrl = `${baseUrl}${relativeImageUrl}`;
+        const adminUser = await Admin.findOne({
+            _id: adminId,
+            'currentTurf.id': turfId
+        });
 
-      console.log('Turf image updated successfully:', relativeImageUrl);
+        if (!adminUser || !adminUser.currentTurf) {
+            return res.status(404).json({ success: false, message: 'Turf not found or unauthorized' });
+        }
 
-      res.json({
-        success: true,
-        message: 'Turf image updated successfully',
-        imageUrl: fullImageUrl   // ← dashboard page-ல update ஆகும்
-      });
+        const imageUrl = req.file.path;  // Cloudinary Full URL
+
+        adminUser.currentTurf.imageUrl = imageUrl;
+        await adminUser.save();
+
+        console.log('Turf image updated successfully to Cloudinary:', imageUrl);
+
+        res.json({
+            success: true,
+            message: 'Turf image updated successfully',
+            imageUrl: imageUrl
+        });
 
     } catch (error) {
-      console.error('Database error during image update:', error);
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlink(req.file.path, () => {});
-      }
-      res.status(500).json({ success: false, message: 'Failed to update turf image' });
+        console.error('Update turf image error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update turf image', error: error.message });
     }
-  });
 });
 // ——————————————————————————————————————
 // PROFILE
@@ -979,28 +903,15 @@ router.get('/turfs', authenticateToken, async (req, res) => {
   }
 });
 
-// FINAL BULLETPROOF CREATE TOURNAMENT — WILL SAVE POSTER OR DIE TRYING
+// FINAL CREATE TOURNAMENT WITH CLOUDINARY
 router.post('/create-tournament', authenticateToken, async (req, res) => {
     console.log('=== CREATE TOURNAMENT CALLED ===');
-    console.log('Body keys:', Object.keys(req.body));
-    console.log('posterImage exists?', !!req.body.posterImage);
-    console.log('posterImage length:', req.body.posterImage?.length || 0);
-    console.log('posterImage starts with data:image?', req.body.posterImage?.startsWith('data:image'));
 
     try {
         const {
-            turfId,
-            adminId,
-            name,
-            sport,
-            registrationEndDate,
-            tournamentStartDate,
-            tournamentEndDate,
-            entryFee,
-            maxTeams,
-            prizePool,
-            description,
-            posterImage
+            turfId, adminId, name, sport, registrationEndDate,
+            tournamentStartDate, tournamentEndDate, entryFee, maxTeams,
+            prizePool, description, posterImage
         } = req.body;
 
         if (adminId !== req.admin.id.toString()) {
@@ -1015,31 +926,17 @@ router.post('/create-tournament', authenticateToken, async (req, res) => {
         const tournamentId = `TOUR${Date.now()}`;
         let imageUrl = '';
 
-        // FORCE SAVE THE IMAGE — NO EXCUSES
-        if (posterImage && typeof posterImage === 'string' && posterImage.length > 1000) {
-            console.log('Saving image...');
+        // Cloudinary Upload for Poster
+        if (posterImage && typeof posterImage === 'string' && posterImage.startsWith('data:image')) {
             try {
-                const base64Data = posterImage.replace(/^data:image\/\w+;base64,/, '');
-                const buffer = Buffer.from(base64Data, 'base64');
-                
-                const filename = `tournament_${tournamentId}.jpg`;
-                const uploadDir = path.join(__dirname, '../uploads');
-                
-                if (!fs.existsSync(uploadDir)) {
-                    fs.mkdirSync(uploadDir, { recursive: true });
-                    console.log('Created uploads folder');
-                }
-
-                const filepath = path.join(uploadDir, filename);
-                fs.writeFileSync(filepath, buffer);
-                
-                imageUrl = `/uploads/${filename}`;
-                console.log('IMAGE SAVED SUCCESS:', imageUrl);
+                const uploadResult = await cloudinary.uploader.upload(posterImage, {
+                    folder: 'turf_app/tournaments',
+                });
+                imageUrl = uploadResult.secure_url;
+                console.log('Tournament poster uploaded to Cloudinary:', imageUrl);
             } catch (imgErr) {
-                console.error('IMAGE SAVE FAILED:', imgErr.message);
+                console.error('Cloudinary upload failed:', imgErr.message);
             }
-        } else {
-            console.log('No valid posterImage received');
         }
 
         const newTournament = {
@@ -1053,44 +950,33 @@ router.post('/create-tournament', authenticateToken, async (req, res) => {
             maxTeams: parseInt(maxTeams) || 8,
             prizePool: parseFloat(prizePool) || 0,
             description: description?.trim() || '',
-            imageUrl,
+            imageUrl,   // ← Cloudinary URL
             registeredTeams: [],
             totalRegistered: 0,
             status: 'upcoming',
             createdAt: new Date()
         };
 
-        console.log('Saving tournament with imageUrl:', imageUrl);
-
         await Admin.updateOne(
             { _id: adminId, 'currentTurf.id': turfId },
             { $push: { 'currentTurf.tournaments': newTournament } }
         );
 
-        // === TOURNAMENT NOTIFICATION — ONLY FOR NEW TOURNAMENT ===
         await sendNotificationToTopic(
             'all_users',
             '🆕 New Tournament!',
             `${name} just added at ${adminUser.currentTurf.turfName}! Entry: ₹${entryFee}. Register fast ⚡`,
-            {
-                type: 'new_tournament',
-                tournamentId: tournamentId,
-                turfId: turfId,
-                turfName: adminUser.currentTurf.turfName
-            }
+            { type: 'new_tournament', tournamentId, turfId, turfName: adminUser.currentTurf.turfName }
         );
-
-        console.log(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] Tournament "${name}" created & notification sent to all users!`);
 
         res.status(201).json({
             success: true,
             message: 'Tournament created & users notified!',
-            tournament: { tournamentId, name, imageUrl },
-            debug: { hasImage: !!imageUrl, imageLength: imageUrl.length }
+            tournament: { tournamentId, name, imageUrl }
         });
 
     } catch (error) {
-        console.error('Create tournament crashed:', error);
+        console.error('Create tournament error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
