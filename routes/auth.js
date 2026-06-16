@@ -1648,37 +1648,36 @@ router.get('/turf/:turfId/gallery/count', authenticateToken, verifyTurfOwner, as
 });
 
 
-// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY - STRONG FIX
+// 2. ADMIN: UPLOAD GALLERY IMAGE - FINAL STRONG FIX (Using $push)
 router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, upload.single('image'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No image provided' });
     }
 
-    const adminUser = await Admin.findById(req.admin.id);
-    if (!adminUser || !adminUser.currentTurf) {
+    const imageUrl = req.file.path;
+    const adminId = req.admin.id;
+
+    // Use $push for reliable array update in nested document
+    const updatedAdmin = await Admin.findOneAndUpdate(
+      { _id: adminId },
+      {
+        $push: {
+          'currentTurf.gallery': {
+            url: imageUrl,
+            type: 'image',
+            uploadedAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updatedAdmin) {
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
 
-    const imageUrl = req.file.path;
-
-    if (!adminUser.currentTurf.gallery) {
-      adminUser.currentTurf.gallery = [];
-    }
-
-    adminUser.currentTurf.gallery.push({
-      url: imageUrl,
-      type: 'image',
-      uploadedAt: new Date()
-    });
-
-    // CRITICAL FIXES FOR NESTED OBJECT
-    adminUser.markModified('currentTurf');
-    adminUser.markModified('currentTurf.gallery');
-
-    const savedAdmin = await adminUser.save({ validateBeforeSave: false });
-
-    console.log(`✅ Gallery image saved successfully. Total images now: ${savedAdmin.currentTurf.gallery.length}`);
+    console.log(`✅ Gallery image pushed successfully. Total images now: ${updatedAdmin.currentTurf.gallery?.length || 0}`);
 
     res.json({
       success: true,
