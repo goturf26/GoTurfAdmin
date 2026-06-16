@@ -22,7 +22,7 @@ const { cloudinary, upload } = require('../config/cloudinary');
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
-console.log("🔥 AUTH ROUTES FILE LOADED");
+console.log("🔥🔥🔥 AUTH ROUTES FILE LOADED V777 🔥🔥🔥");
 
 console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID);
 console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL);
