@@ -286,8 +286,8 @@ router.post('/login', async (req, res) => {
     }
 });
 router.post('/google-login', async (req, res) => {
-  console.log('admin.apps.length =', admin.apps.length);
-  console.log('typeof admin.auth =', typeof admin.auth);
+  console.log('admin = ', admin);
+  console.log('firebaseAdmin = ', firebaseAdmin);
     try {
         const { idToken } = req.body;
 
