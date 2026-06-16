@@ -1637,7 +1637,7 @@ router.get('/turf/:turfId/gallery/count', authenticateToken, verifyTurfOwner, as
 });
 
 
-// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY
+// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY - FIXED & DEBUGGED
 router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, upload.single('image'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
@@ -1649,7 +1649,7 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
 
-    const imageUrl = req.file.path; // Full Cloudinary URL
+    const imageUrl = req.file.path;
 
     if (!adminUser.currentTurf.gallery) {
       adminUser.currentTurf.gallery = [];
@@ -1663,12 +1663,12 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
 
     await adminUser.save();
 
-    console.log(`✅ Gallery image uploaded: ${imageUrl}`);
+    console.log(`✅ Gallery image saved successfully. Total images now: ${adminUser.currentTurf.gallery.length}`);
 
     res.json({
       success: true,
       message: 'Gallery image uploaded successfully!',
-      data: { url: imageUrl, type: 'image' }
+      data: { url: imageUrl }
     });
 
   } catch (error) {
