@@ -1648,7 +1648,7 @@ router.get('/turf/:turfId/gallery/count', authenticateToken, verifyTurfOwner, as
 });
 
 
-// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY - FIXED & DEBUGGED
+// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY - STRONG SAVE FIX
 router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, upload.single('image'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
@@ -1656,12 +1656,13 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
     }
 
     const adminUser = await Admin.findById(req.admin.id);
-    if (!adminUser?.currentTurf) {
+    if (!adminUser || !adminUser.currentTurf) {
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
 
     const imageUrl = req.file.path;
 
+    // Ensure gallery array exists
     if (!adminUser.currentTurf.gallery) {
       adminUser.currentTurf.gallery = [];
     }
@@ -1672,9 +1673,12 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
       uploadedAt: new Date()
     });
 
-    await adminUser.save();
+    // CRITICAL FIX: Mark the sub-document as modified
+    adminUser.markModified('currentTurf');
 
-    console.log(`✅ Gallery image saved successfully. Total images now: ${adminUser.currentTurf.gallery.length}`);
+    const savedAdmin = await adminUser.save();
+
+    console.log(`✅ Gallery image saved successfully. Total images now: ${savedAdmin.currentTurf.gallery.length}`);
 
     res.json({
       success: true,
@@ -1687,7 +1691,6 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 // 3. ADMIN: DELETE GALLERY IMAGE
 router.delete('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async (req, res) => {
   try {
