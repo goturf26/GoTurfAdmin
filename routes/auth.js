@@ -5,6 +5,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
 const authenticateToken = require('../middleware/auth');
 const multer = require('multer'); // kept for handleMulterError
 const path = require('path');
@@ -304,7 +305,7 @@ router.post('/google-login', async (req, res) => {
         console.log('✅ ID Token received');
 
         // Verify Firebase token
-        const decoded = await admin.auth().verifyIdToken(idToken);
+        const decoded = await getAuth().verifyIdToken(idToken);
 
         console.log('✅ Token verified');
         console.log('Email:', decoded.email);
