@@ -24,15 +24,22 @@ const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 console.log("🔥 AUTH ROUTES FILE LOADED");
 // Firebase Admin Init
 try {
-    const serviceAccountPath = path.resolve(__dirname, '../service-account.json');
+    if (!admin.apps.length) {
+        const serviceAccountPath = path.resolve(
+            __dirname,
+            '../service-account.json'
+        );
 
-    admin.initializeApp({
-        credential: admin.credential.cert(require(serviceAccountPath)),
-    });
+        admin.initializeApp({
+            credential: admin.credential.cert(
+                require(serviceAccountPath)
+            ),
+        });
 
-    console.log('Firebase Admin initialized');
+        console.log('✅ Firebase Admin initialized');
+    }
 } catch (err) {
-    console.log('Firebase already initialized');
+    console.error('❌ Firebase init error:', err);
 }
 
 // === NOTIFICATION HELPER FUNCTION ===
@@ -279,6 +286,8 @@ router.post('/login', async (req, res) => {
     }
 });
 router.post('/google-login', async (req, res) => {
+  console.log('admin.apps.length =', admin.apps.length);
+  console.log('typeof admin.auth =', typeof admin.auth);
     try {
         const { idToken } = req.body;
 
