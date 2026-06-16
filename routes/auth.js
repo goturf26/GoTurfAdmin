@@ -1648,7 +1648,7 @@ router.get('/turf/:turfId/gallery/count', authenticateToken, verifyTurfOwner, as
 });
 
 
-// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY - STRONG SAVE FIX
+// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY - STRONG FIX
 router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, upload.single('image'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
@@ -1662,7 +1662,6 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
 
     const imageUrl = req.file.path;
 
-    // Ensure gallery array exists
     if (!adminUser.currentTurf.gallery) {
       adminUser.currentTurf.gallery = [];
     }
@@ -1673,10 +1672,11 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
       uploadedAt: new Date()
     });
 
-    // CRITICAL FIX: Mark the sub-document as modified
+    // CRITICAL FIXES FOR NESTED OBJECT
     adminUser.markModified('currentTurf');
+    adminUser.markModified('currentTurf.gallery');
 
-    const savedAdmin = await adminUser.save();
+    const savedAdmin = await adminUser.save({ validateBeforeSave: false });
 
     console.log(`✅ Gallery image saved successfully. Total images now: ${savedAdmin.currentTurf.gallery.length}`);
 
