@@ -1,38 +1,36 @@
 const express = require('express');
 const router = express.Router();
+
 const Admin = require('../models/Admin');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+// ==================== FIREBASE ADMIN SDK (ONLY ONCE) ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
+
 const authenticateToken = require('../middleware/auth');
-const multer = require('multer'); // kept for handleMulterError
-const path = require('path');
-const fs = require('fs');
+const multer = require('multer');
 const { MongoClient } = require('mongodb');
 const mongoose = require('mongoose');
-const { ObjectId } = require('mongodb');
 const cron = require('node-cron');
 require('dotenv').config();
 
 // Cloudinary
 const { cloudinary, upload } = require('../config/cloudinary');
 
-// MongoDB connection
+// MongoDB
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
-// ==================== FIREBASE ADMIN SDK (MUST BE AT TOP) ====================
-const admin = require('firebase-admin');
-const { getAuth } = require('firebase-admin/auth');
 
+// ==================== FIREBASE INITIALIZATION ====================
 console.log("🔥 AUTH ROUTES LOADED");
 
 console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌");
 console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌");
 console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅" : "❌");
 
-// Global function
 const initializeFirebase = () => {
   try {
     if (admin.apps?.length > 0) {
@@ -65,9 +63,8 @@ const initializeFirebase = () => {
   }
 };
 
-// Initialize immediately
 initializeFirebase();
-// =====================================================================
+
 
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
