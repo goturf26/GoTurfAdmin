@@ -23,19 +23,30 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 console.log("🔥 AUTH ROUTES FILE LOADED");
-// Firebase Admin Init
-try {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        }),
-    });
 
-    console.log('✅ Firebase Admin initialized');
-} catch (error) {
-    console.error('❌ Firebase init error:', error);
+console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID);
+console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL);
+console.log(
+  "PRIVATE_KEY =",
+  process.env.FIREBASE_PRIVATE_KEY ? "EXISTS" : "MISSING"
+);
+
+try {
+    if (!admin.getApps().length) {
+
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: process.env.FIREBASE_PROJECT_ID,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+            })
+        });
+
+        console.log("✅ Firebase Admin initialized");
+    }
+} catch (err) {
+    console.error("❌ Firebase Init Error");
+    console.error(err);
 }
 
 // === NOTIFICATION HELPER FUNCTION ===
