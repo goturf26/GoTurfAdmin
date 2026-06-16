@@ -923,16 +923,18 @@ router.post('/create-tournament', authenticateToken, async (req, res) => {
         const tournamentId = `TOUR${Date.now()}`;
         let imageUrl = '';
 
-        // Cloudinary Upload for Poster
+        // Cloudinary Upload for Poster (Base64)
         if (posterImage && typeof posterImage === 'string' && posterImage.startsWith('data:image')) {
             try {
                 const uploadResult = await cloudinary.uploader.upload(posterImage, {
                     folder: 'turf_app/tournaments',
+                    transformation: [{ width: 800, height: 600, crop: 'limit' }]
                 });
                 imageUrl = uploadResult.secure_url;
-                console.log('Tournament poster uploaded to Cloudinary:', imageUrl);
+                console.log('✅ Tournament poster uploaded to Cloudinary:', imageUrl);
             } catch (imgErr) {
                 console.error('Cloudinary upload failed:', imgErr.message);
+                imageUrl = ''; // fallback
             }
         }
 
@@ -959,16 +961,9 @@ router.post('/create-tournament', authenticateToken, async (req, res) => {
             { $push: { 'currentTurf.tournaments': newTournament } }
         );
 
-        await sendNotificationToTopic(
-            'all_users',
-            '🆕 New Tournament!',
-            `${name} just added at ${adminUser.currentTurf.turfName}! Entry: ₹${entryFee}. Register fast ⚡`,
-            { type: 'new_tournament', tournamentId, turfId, turfName: adminUser.currentTurf.turfName }
-        );
-
         res.status(201).json({
             success: true,
-            message: 'Tournament created & users notified!',
+            message: 'Tournament created successfully!',
             tournament: { tournamentId, name, imageUrl }
         });
 
@@ -977,7 +972,6 @@ router.post('/create-tournament', authenticateToken, async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
-
 // ——————————————————————————————————————
 // PUBLIC: GET TOURNAMENTS - FIXED
 // ——————————————————————————————————————
@@ -990,29 +984,29 @@ router.get('/tournaments/:turfId', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Turf not found' });
         }
 
-        const baseUrl = `${req.protocol}://${req.get('host')}`;
-
         const tournaments = (adminUser.currentTurf.tournaments || []).map(t => {
-        const registeredCount = Array.isArray(t.registeredTeams) ? t.registeredTeams.length : 0;
-        return {
-            tournamentId: t.tournamentId,
-            id: t.tournamentId,
-            turfId: adminUser.currentTurf.id,
-            name: t.name || 'Unnamed',
-            sport: (t.sport || '').toUpperCase(),
-            registrationEndDate: t.registrationEndDate ? t.registrationEndDate.toISOString() : null,
-            tournamentStartDate: t.tournamentStartDate ? t.tournamentStartDate.toISOString() : null,
-            tournamentEndDate: t.tournamentEndDate ? t.tournamentEndDate.toISOString() : null,
-            entryFee: parseInt(t.entryFee) || 0,
-            prizePool: parseFloat(t.prizePool) || 0,
-            maxTeams: parseInt(t.maxTeams) || 16,
-            registeredTeamsCount: registeredCount,
-            registeredTeams: t.registeredTeams || [],
-            venue: adminUser.currentTurf.turfName,
-            imageUrl: t.imageUrl ? `${baseUrl}${t.imageUrl}` : null,
-            description: t.description || ''
-        };
-    });
+            const registeredCount = Array.isArray(t.registeredTeams) ? t.registeredTeams.length : 0;
+
+            return {
+                tournamentId: t.tournamentId,
+                id: t.tournamentId,
+                turfId: adminUser.currentTurf.id,
+                name: t.name || 'Unnamed',
+                sport: (t.sport || '').toUpperCase(),
+                registrationEndDate: t.registrationEndDate ? t.registrationEndDate.toISOString() : null,
+                tournamentStartDate: t.tournamentStartDate ? t.tournamentStartDate.toISOString() : null,
+                tournamentEndDate: t.tournamentEndDate ? t.tournamentEndDate.toISOString() : null,
+                entryFee: parseInt(t.entryFee) || 0,
+                prizePool: parseFloat(t.prizePool) || 0,
+                maxTeams: parseInt(t.maxTeams) || 16,
+                registeredTeamsCount: registeredCount,
+                registeredTeams: t.registeredTeams || [],
+                venue: adminUser.currentTurf.turfName,
+                imageUrl: t.imageUrl || null,          
+                description: t.description || ''
+            };
+        });
+
         res.json({ success: true, data: tournaments });
     } catch (error) {
         console.error('Tournament fetch error:', error);
@@ -1590,18 +1584,8 @@ router.get('/bookings/:turfId', authenticateToken, async (req, res) => {
 });
 
 // ——————————————————————————————————————
-// TURF GALLERY — FULLY WORKING WITH LOWERCASE FOLDERS (IMAGES ONLY)
+// TURF GALLERY — FULL CLOUDINARY VERSION
 // ——————————————————————————————————————
-
-const galleryDir = path.join(__dirname, '../uploads/turf-gallery');
-if (!fs.existsSync(galleryDir)) {
-  fs.mkdirSync(galleryDir, { recursive: true });
-}
-
-// Helper to always use lowercase folder name
-const getTurfGalleryFolder = (turfId) => {
-  return path.join(galleryDir, turfId.toLowerCase());
-};
 
 // Middleware: Verify admin owns the turf
 const verifyTurfOwner = async (req, res, next) => {
@@ -1620,156 +1604,95 @@ const verifyTurfOwner = async (req, res, next) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
-// PUBLIC TURF DETAILS - NO AUTH REQUIRED (for venue details & slot timing)
-router.get('/public/turf/:turfId', async (req, res) => {
+
+// 1. ADMIN: GET GALLERY IMAGES
+router.get('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async (req, res) => {
   try {
-    const { turfId } = req.params;
-
-    const adminUser = await Admin.findOne({ 'currentTurf.id': turfId });
-    if (!adminUser || !adminUser.currentTurf) {
-      return res.status(404).json({ success: false, message: 'Turf not found' });
-    }
-
-    const turf = adminUser.currentTurf;
-
-    res.json({
-      success: true,
-      turf: {
-        id: turf.id,
-        turfName: turf.turfName,
-        turfAddress: turf.turfAddress || '',
-        turfAddressLine2: turf.turfAddressLine2 || '',
-        district: turf.district || '',
-        state: turf.state || '',
-        contactNumber: turf.contactNumber || '',
-        pricePerHour: turf.pricePerHour || 0,
-        sports: turf.sports || [],
-        imageUrl: turf.imageUrl || '',
-        hasLighting: turf.hasLighting || false,
-        hasWashroom: turf.hasWashroom || false,
-        hasParking: turf.hasParking || false,
-        hasDrinkingFacilities: turf.hasDrinkingFacilities || false,
-        operationStartTime: turf.operationStartTime || '06:00 AM',
-        operationEndTime: turf.operationEndTime || '10:00 PM',
-        heldSlots: turf.heldSlots || [],
-        heldDays: turf.heldDays || [],
-        confirmedSlots: turf.confirmedSlots || [],
-      }
-    });
+    const adminUser = await Admin.findById(req.admin.id);
+    const gallery = adminUser?.currentTurf?.gallery || [];
+    res.json({ success: true, data: gallery });
   } catch (error) {
-    console.error('Public turf details error:', error);
+    console.error('Gallery fetch error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-// 1. ADMIN: GET GALLERY COUNT
-router.get('/turf/:turfId/gallery/count', authenticateToken, verifyTurfOwner, (req, res) => {
-  const turfFolder = getTurfGalleryFolder(req.params.turfId);
-  fs.readdir(turfFolder, (err, files) => {
-    if (err || !files) {
-      return res.json({ success: true, data: { images: 0, videos: 0 } });
-    }
-    const images = files.filter(f => /\.(jpe?g|png|webp)$/i.test(f)).length;
-    res.json({ success: true, data: { images, videos: 0 } });
-  });
-});
 
-// 2. ADMIN: GET ALL GALLERY IMAGES
-router.get('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, (req, res) => {
-  const turfFolder = getTurfGalleryFolder(req.params.turfId);
-  fs.readdir(turfFolder, (err, files) => {
-    if (err || !files || files.length === 0) {
-      return res.json({ success: true, data: [] });
+// 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY
+router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, upload.single('image'), handleMulterError, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image provided' });
     }
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const images = files
-      .filter(f => /\.(jpe?g|png|webp)$/i.test(f))
-      .map(file => ({
-        url: `${baseUrl}/uploads/turf-gallery/${req.params.turfId.toLowerCase()}/${file}`,
-        type: 'image'
-      }));
-
-    res.json({ success: true, data: images });
-  });
-});
-
-// 3. ADMIN: UPLOAD IMAGE
-router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, (req, res) => {
-  const galleryUpload = multer({
-    storage: multer.diskStorage({
-      destination: (req, file, cb) => {
-        const turfFolder = getTurfGalleryFolder(req.params.turfId);
-        if (!fs.existsSync(turfFolder)) fs.mkdirSync(turfFolder, { recursive: true });
-        cb(null, turfFolder);
-      },
-      filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-        cb(null, `${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`);
-      }
-    }),
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    fileFilter: (req, file, cb) => {
-      if (/\.(jpe?g|png|webp)$/i.test(file.originalname)) {
-        cb(null, true);
-      } else {
-        cb(null, false);
-      }
+    const adminUser = await Admin.findById(req.admin.id);
+    if (!adminUser?.currentTurf) {
+      return res.status(404).json({ success: false, message: 'Turf not found' });
     }
-  }).single('image');
 
-  galleryUpload(req, res, (err) => {
-    if (err) return res.status(400).json({ success: false, message: 'Invalid file type or size' });
-    if (!req.file) return res.status(400).json({ success: false, message: 'No image uploaded' });
+    const imageUrl = req.file.path; // Full Cloudinary URL
 
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/turf-gallery/${req.params.turfId.toLowerCase()}/${req.file.filename}`;
+    if (!adminUser.currentTurf.gallery) {
+      adminUser.currentTurf.gallery = [];
+    }
+
+    adminUser.currentTurf.gallery.push({
+      url: imageUrl,
+      type: 'image',
+      uploadedAt: new Date()
+    });
+
+    await adminUser.save();
+
+    console.log(`✅ Gallery image uploaded: ${imageUrl}`);
 
     res.json({
       success: true,
-      message: 'Image uploaded successfully!',
+      message: 'Gallery image uploaded successfully!',
       data: { url: imageUrl, type: 'image' }
     });
-  });
+
+  } catch (error) {
+    console.error('Gallery upload error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
-// 4. ADMIN: DELETE IMAGE
-router.delete('/turf/:turfId/gallery/:filename', authenticateToken, verifyTurfOwner, (req, res) => {
-  const filePath = path.join(getTurfGalleryFolder(req.params.turfId), req.params.filename);
+// 3. ADMIN: DELETE GALLERY IMAGE
+router.delete('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ success: false, message: 'imageUrl required' });
 
-  fs.unlink(filePath, (err) => {
-    if (err) {
-      console.error('Delete error:', err);
-      return res.status(404).json({ success: false, message: 'Image not found or already deleted' });
+    const adminUser = await Admin.findById(req.admin.id);
+    if (!adminUser?.currentTurf?.gallery) {
+      return res.status(404).json({ success: false, message: 'Gallery not found' });
     }
+
+    adminUser.currentTurf.gallery = adminUser.currentTurf.gallery.filter(img => img.url !== imageUrl);
+
+    await adminUser.save();
+
     res.json({ success: true, message: 'Image deleted successfully' });
-  });
+  } catch (error) {
+    console.error('Gallery delete error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
-// 5. PUBLIC: GET ALL GALLERY IMAGES (FOR USER APP - NO AUTH)
-router.get('/public/turf/:turfId/gallery', (req, res) => {
-  const turfFolder = getTurfGalleryFolder(req.params.turfId);
-
-  console.log(`[PUBLIC GALLERY] Request for turfId: ${req.params.turfId} → folder: ${turfFolder}`);
-
-  fs.readdir(turfFolder, (err, files) => {
-    if (err || !files || files.length === 0) {
-      console.log('[PUBLIC GALLERY] No images found or folder missing');
-      return res.json({ success: true, data: [] });
-    }
-
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const turfIdLower = req.params.turfId.toLowerCase();
-    const images = files
-      .filter(f => /\.(jpe?g|png|webp)$/i.test(f))
-      .map(file => ({
-        url: `${baseUrl}/uploads/turf-gallery/${turfIdLower}/${file}`,
-        type: 'image'
-      }));
-
-    console.log(`[PUBLIC GALLERY] Returning ${images.length} images`);
-    res.json({ success: true, data: images });
-  });
+// 4. PUBLIC: GET GALLERY (User App-க்கு)
+router.get('/public/turf/:turfId/gallery', async (req, res) => {
+  try {
+    const { turfId } = req.params;
+    const adminUser = await Admin.findOne({ 'currentTurf.id': turfId });
+    
+    const gallery = adminUser?.currentTurf?.gallery || [];
+    
+    res.json({ success: true, data: gallery });
+  } catch (error) {
+    console.error('Public gallery error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
-
 // === TOURNAMENT REGISTRATION REMINDERS (ONLY REGISTERED USERS - INDIVIDUAL FCM TOKENS) ===
 cron.schedule('*/30 * * * *', async () => {  // Every 30 minutes
     try {
