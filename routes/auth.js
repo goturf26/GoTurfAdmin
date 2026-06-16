@@ -1,13 +1,17 @@
 const express = require('express');
 const router = express.Router();
+
 const Admin = require('../models/Admin');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
+// Firebase Admin (declared ONLY ONCE)
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
+
 const authenticateToken = require('../middleware/auth');
-const multer = require('multer'); // kept for handleMulterError
+const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { MongoClient } = require('mongodb');
@@ -22,19 +26,16 @@ const { cloudinary, upload } = require('../config/cloudinary');
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
-// ==================== FIREBASE ADMIN INITIALIZATION ====================
-const admin = require('firebase-admin');
-const { getAuth } = require('firebase-admin/auth');
 
-console.log("🔥 AUTH ROUTES LOADED");
-console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌ MISSING");
-console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌ MISSING");
-console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅ Present" : "❌ MISSING");
-console.log("Firebase Apps before init =", admin.getApps().length);
+// ==================== FIREBASE INITIALIZATION ====================
+console.log("🔥🔥🔥 AUTH ROUTES FILE LOADED 🔥🔥🔥");
 
-// Robust initialization
-let firebaseInitialized = false;
+console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌");
+console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌");
+console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅" : "❌");
+console.log("Firebase Apps Count (before) =", admin.getApps().length);
 
+// Robust Firebase Init
 const initializeFirebase = () => {
   if (admin.apps.length > 0) {
     console.log("✅ Firebase Admin already initialized");
@@ -45,7 +46,7 @@ const initializeFirebase = () => {
     if (!process.env.FIREBASE_PROJECT_ID || 
         !process.env.FIREBASE_CLIENT_EMAIL || 
         !process.env.FIREBASE_PRIVATE_KEY) {
-      console.error("❌ Firebase credentials missing in environment variables!");
+      console.error("❌ Firebase credentials missing in .env!");
       return false;
     }
 
@@ -60,19 +61,16 @@ const initializeFirebase = () => {
     });
 
     console.log("✅ Firebase Admin SDK Initialized Successfully");
-    firebaseInitialized = true;
     return true;
   } catch (err) {
     console.error("❌ Firebase Initialization Failed:", err.message);
-    if (err.message.includes("private_key")) {
-      console.error("   → Check that FIREBASE_PRIVATE_KEY contains actual newlines or properly escaped \\n");
-    }
     return false;
   }
 };
 
 // Initialize immediately
 initializeFirebase();
+
 
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
@@ -327,17 +325,12 @@ router.post('/google-login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'ID Token is required' });
     }
 
-    // Ensure Firebase is initialized
-    if (!firebaseInitialized && !initializeFirebase()) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Firebase service not configured properly' 
-      });
+    if (!initializeFirebase()) {
+      return res.status(500).json({ success: false, message: 'Firebase not configured' });
     }
 
     console.log('✅ ID Token received');
 
-    // Verify token
     const decoded = await getAuth().verifyIdToken(idToken);
 
     console.log('✅ Token verified for:', decoded.email);
@@ -351,7 +344,6 @@ router.post('/google-login', async (req, res) => {
       });
     }
 
-    // Generate JWT tokens
     const token = jwt.sign(
       { id: adminUser._id, email: adminUser.email, role: adminUser.role || 'admin' },
       process.env.JWT_SECRET,
