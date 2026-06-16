@@ -23,29 +23,28 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK (ONLY ONCE) ====================
+// ==================== FIREBASE ADMIN SDK ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
-console.log("🔥🔥🔥 AUTH ROUTES FILE LOADED 🔥🔥🔥");
+console.log("🔥 AUTH ROUTES LOADED");
 
 console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌");
 console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌");
 console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅" : "❌");
 
-// Safe Firebase Initialization
+// Robust Initialization
 const initializeFirebase = () => {
   try {
-    // Check if already initialized
-    if (admin && admin.apps && admin.apps.length > 0) {
-      console.log("✅ Firebase Admin already initialized");
+    if (admin.apps?.length > 0) {
+      console.log("✅ Firebase already initialized");
       return true;
     }
 
     if (!process.env.FIREBASE_PROJECT_ID || 
         !process.env.FIREBASE_CLIENT_EMAIL || 
         !process.env.FIREBASE_PRIVATE_KEY) {
-      console.error("❌ Firebase credentials missing in environment variables!");
+      console.error("❌ Firebase env vars missing!");
       return false;
     }
 
@@ -55,24 +54,21 @@ const initializeFirebase = () => {
       credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: privateKey,
+        privateKey: privateKey
       })
     });
 
-    console.log("✅ Firebase Admin SDK Initialized Successfully");
-    console.log("Firebase Apps Count (after) =", admin.apps.length);
+    console.log("✅ Firebase Admin Initialized Successfully");
     return true;
-
   } catch (err) {
-    console.error("❌ Firebase Initialization Failed:", err.message);
-    console.error(err.stack);
+    console.error("❌ Firebase Init Error:", err.message);
     return false;
   }
 };
 
-// Initialize immediately
 initializeFirebase();
-// =====================================================================
+// ========================================================
+
 
 
 // === NOTIFICATION HELPER FUNCTION ===
