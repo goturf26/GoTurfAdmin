@@ -25,22 +25,17 @@ const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 console.log("🔥 AUTH ROUTES FILE LOADED");
 // Firebase Admin Init
 try {
-    if (!admin.apps.length) {
-        const serviceAccountPath = path.resolve(
-            __dirname,
-            '../service-account.json'
-        );
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId: process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+    });
 
-        admin.initializeApp({
-            credential: admin.credential.cert(
-                require(serviceAccountPath)
-            ),
-        });
-
-        console.log('✅ Firebase Admin initialized');
-    }
-} catch (err) {
-    console.error('❌ Firebase init error:', err);
+    console.log('✅ Firebase Admin initialized');
+} catch (error) {
+    console.error('❌ Firebase init error:', error);
 }
 
 // === NOTIFICATION HELPER FUNCTION ===
