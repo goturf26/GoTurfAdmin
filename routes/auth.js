@@ -22,32 +22,52 @@ const { cloudinary, upload } = require('../config/cloudinary');
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
-console.log("🔥🔥🔥 AUTH ROUTES FILE LOADED V777 🔥🔥🔥");
+// ==================== FIREBASE ADMIN SDK (MUST BE AT TOP) ====================
+const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
 
-console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID);
-console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL);
-console.log(
-  "PRIVATE_KEY =",
-  process.env.FIREBASE_PRIVATE_KEY ? "EXISTS" : "MISSING"
-);
-console.log("Firebase Apps Count =", admin.getApps().length);
-try {
-    if (!admin.getApps().length) {
+console.log("🔥 AUTH ROUTES LOADED");
 
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-            })
-        });
+console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌");
+console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌");
+console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅" : "❌");
 
-        console.log("✅ Firebase Admin initialized");
+// Global function
+const initializeFirebase = () => {
+  try {
+    if (admin.apps?.length > 0) {
+      console.log("✅ Firebase already initialized");
+      return true;
     }
-} catch (err) {
-    console.error("❌ Firebase Init Error");
-    console.error(err);
-}
+
+    if (!process.env.FIREBASE_PROJECT_ID || 
+        !process.env.FIREBASE_CLIENT_EMAIL || 
+        !process.env.FIREBASE_PRIVATE_KEY) {
+      console.error("❌ Firebase credentials missing!");
+      return false;
+    }
+
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      })
+    });
+
+    console.log("✅ Firebase Admin Initialized Successfully");
+    return true;
+  } catch (err) {
+    console.error("❌ Firebase Init Failed:", err.message);
+    return false;
+  }
+};
+
+// Initialize immediately
+initializeFirebase();
+// =====================================================================
 
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
@@ -299,23 +319,16 @@ router.post('/google-login', async (req, res) => {
     const { idToken } = req.body;
 
     if (!idToken) {
-      console.log('❌ No ID Token received');
       return res.status(400).json({ success: false, message: 'ID Token is required' });
     }
 
     console.log('✅ ID Token received');
 
-    // Ensure Firebase is initialized (use the global initializeFirebase function)
+    // Initialize Firebase
     if (!initializeFirebase()) {
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Firebase service is not configured properly' 
-      });
+      return res.status(500).json({ success: false, message: 'Firebase not configured' });
     }
 
-    console.log("Apps Count after init =", admin.apps.length);
-
-    // Verify token
     const decoded = await getAuth().verifyIdToken(idToken);
 
     console.log('✅ Token verified for:', decoded.email);
@@ -323,14 +336,9 @@ router.post('/google-login', async (req, res) => {
     const adminUser = await Admin.findOne({ email: decoded.email?.toLowerCase() });
 
     if (!adminUser) {
-      console.log('❌ Admin not found in database');
-      return res.status(404).json({
-        success: false,
-        message: 'Admin not found. Please sign up first.'
-      });
+      return res.status(404).json({ success: false, message: 'Admin not found. Please sign up first.' });
     }
 
-    // Generate JWT tokens
     const token = jwt.sign(
       { id: adminUser._id, email: adminUser.email, role: adminUser.role || 'admin' },
       process.env.JWT_SECRET,
@@ -343,8 +351,7 @@ router.post('/google-login', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    console.log('✅ GOOGLE LOGIN SUCCESS ==========\n');
-
+    console.log('✅ GOOGLE LOGIN SUCCESS');
     return res.json({
       success: true,
       message: 'Google login successful',
@@ -362,7 +369,6 @@ router.post('/google-login', async (req, res) => {
   } catch (error) {
     console.error('\n========== GOOGLE LOGIN ERROR ==========');
     console.error(error.message);
-    console.error('Stack:', error.stack);
     console.error('========================================\n');
 
     return res.status(500).json({
