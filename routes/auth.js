@@ -1605,12 +1605,23 @@ const verifyTurfOwner = async (req, res, next) => {
   }
 };
 
-// 1. ADMIN: GET GALLERY IMAGES
+// 1. ADMIN: GET GALLERY IMAGES - FIXED
 router.get('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async (req, res) => {
   try {
     const adminUser = await Admin.findById(req.admin.id);
-    const gallery = adminUser?.currentTurf?.gallery || [];
-    res.json({ success: true, data: gallery });
+    
+    if (!adminUser || !adminUser.currentTurf) {
+      return res.status(404).json({ success: false, message: 'Turf not found' });
+    }
+
+    const gallery = adminUser.currentTurf.gallery || [];
+    
+    console.log(`📸 Returning ${gallery.length} gallery images for turf ${req.params.turfId}`);
+
+    res.json({ 
+      success: true, 
+      data: gallery 
+    });
   } catch (error) {
     console.error('Gallery fetch error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
