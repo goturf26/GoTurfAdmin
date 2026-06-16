@@ -22,32 +22,57 @@ const { cloudinary, upload } = require('../config/cloudinary');
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
-console.log("🔥🔥🔥 AUTH ROUTES FILE LOADED V777 🔥🔥🔥");
+// ==================== FIREBASE ADMIN INITIALIZATION ====================
+const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
 
-console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID);
-console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL);
-console.log(
-  "PRIVATE_KEY =",
-  process.env.FIREBASE_PRIVATE_KEY ? "EXISTS" : "MISSING"
-);
-console.log("Firebase Apps Count =", admin.getApps().length);
-try {
-    if (!admin.getApps().length) {
+console.log("🔥 AUTH ROUTES LOADED");
+console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌ MISSING");
+console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌ MISSING");
+console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅ Present" : "❌ MISSING");
+console.log("Firebase Apps before init =", admin.getApps().length);
 
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: process.env.FIREBASE_PROJECT_ID,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-            })
-        });
+// Robust initialization
+let firebaseInitialized = false;
 
-        console.log("✅ Firebase Admin initialized");
+const initializeFirebase = () => {
+  if (admin.apps.length > 0) {
+    console.log("✅ Firebase Admin already initialized");
+    return true;
+  }
+
+  try {
+    if (!process.env.FIREBASE_PROJECT_ID || 
+        !process.env.FIREBASE_CLIENT_EMAIL || 
+        !process.env.FIREBASE_PRIVATE_KEY) {
+      console.error("❌ Firebase credentials missing in environment variables!");
+      return false;
     }
-} catch (err) {
-    console.error("❌ Firebase Init Error");
-    console.error(err);
-}
+
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      })
+    });
+
+    console.log("✅ Firebase Admin SDK Initialized Successfully");
+    firebaseInitialized = true;
+    return true;
+  } catch (err) {
+    console.error("❌ Firebase Initialization Failed:", err.message);
+    if (err.message.includes("private_key")) {
+      console.error("   → Check that FIREBASE_PRIVATE_KEY contains actual newlines or properly escaped \\n");
+    }
+    return false;
+  }
+};
+
+// Initialize immediately
+initializeFirebase();
 
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
@@ -293,109 +318,79 @@ router.post('/login', async (req, res) => {
     }
 });
 router.post('/google-login', async (req, res) => {
-  console.log('admin = ', admin);
-  
-    try {
-        const { idToken } = req.body;
+  try {
+    const { idToken } = req.body;
 
-        console.log('\n========== GOOGLE LOGIN START ==========');
+    console.log('\n========== GOOGLE LOGIN START ==========');
 
-        if (!idToken) {
-            console.log('❌ No ID Token received');
-            return res.status(400).json({
-                success: false,
-                message: 'ID Token is required'
-            });
-        }
-
-        console.log('✅ ID Token received');
-
-        // Verify Firebase token
-        const decoded = await getAuth().verifyIdToken(idToken);
-
-        console.log('✅ Token verified');
-        console.log('Email:', decoded.email);
-        console.log('UID:', decoded.uid);
-
-        // Find admin in database
-        const adminUser = await Admin.findOne({
-            email: decoded.email
-        });
-
-        console.log('Admin found:', !!adminUser);
-
-        if (!adminUser) {
-            console.log('❌ Admin not found in database');
-
-            return res.status(404).json({
-                success: false,
-                message: 'Admin not found. Please sign up first.'
-            });
-        }
-
-        // Check JWT secrets
-        if (!process.env.JWT_SECRET) {
-            throw new Error('JWT_SECRET is missing in .env');
-        }
-
-        if (!process.env.REFRESH_TOKEN_SECRET) {
-            throw new Error('REFRESH_TOKEN_SECRET is missing in .env');
-        }
-
-        // Generate access token
-        const token = jwt.sign(
-            {
-                id: adminUser._id,
-                email: adminUser.email,
-                role: adminUser.role || 'admin'
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: '1h'
-            }
-        );
-
-        // Generate refresh token
-        const refreshToken = jwt.sign(
-            {
-                id: adminUser._id
-            },
-            process.env.REFRESH_TOKEN_SECRET,
-            {
-                expiresIn: '7d'
-            }
-        );
-
-        console.log('✅ JWT tokens generated');
-        console.log('========== GOOGLE LOGIN SUCCESS ==========\n');
-
-        return res.json({
-            success: true,
-            message: 'Google login successful',
-            admin: {
-                id: adminUser._id,
-                name: adminUser.name,
-                email: adminUser.email,
-                role: adminUser.role || 'admin',
-                currentTurf: adminUser.currentTurf || {}
-            },
-            token,
-            refreshToken
-        });
-
-    } catch (error) {
-        console.error('\n========== GOOGLE LOGIN ERROR ==========');
-        console.error(error);
-        console.error('Message:', error.message);
-        console.error('Stack:', error.stack);
-        console.error('========================================\n');
-
-        return res.status(500).json({
-            success: false,
-            message: error.message || 'Google login failed'
-        });
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: 'ID Token is required' });
     }
+
+    // Ensure Firebase is initialized
+    if (!firebaseInitialized && !initializeFirebase()) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Firebase service not configured properly' 
+      });
+    }
+
+    console.log('✅ ID Token received');
+
+    // Verify token
+    const decoded = await getAuth().verifyIdToken(idToken);
+
+    console.log('✅ Token verified for:', decoded.email);
+
+    const adminUser = await Admin.findOne({ email: decoded.email?.toLowerCase() });
+
+    if (!adminUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found. Please sign up first.'
+      });
+    }
+
+    // Generate JWT tokens
+    const token = jwt.sign(
+      { id: adminUser._id, email: adminUser.email, role: adminUser.role || 'admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: adminUser._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ GOOGLE LOGIN SUCCESS');
+    return res.json({
+      success: true,
+      message: 'Google login successful',
+      admin: {
+        id: adminUser._id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role || 'admin',
+        currentTurf: adminUser.currentTurf || {}
+      },
+      token,
+      refreshToken
+    });
+
+  } catch (error) {
+    console.error('\n========== GOOGLE LOGIN ERROR ==========');
+    console.error(error.message);
+    console.error('========================================\n');
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Google login failed'
+    });
+  }
 });
+
 router.post('/signup', async (req, res) => {
   const { name, email, phone, password } = req.body;
 
