@@ -279,23 +279,105 @@ router.post('/login', async (req, res) => {
     }
 });
 router.post('/google-login', async (req, res) => {
-    const { idToken } = req.body;
     try {
+        const { idToken } = req.body;
+
+        console.log('\n========== GOOGLE LOGIN START ==========');
+
+        if (!idToken) {
+            console.log('❌ No ID Token received');
+            return res.status(400).json({
+                success: false,
+                message: 'ID Token is required'
+            });
+        }
+
+        console.log('✅ ID Token received');
+
+        // Verify Firebase token
         const decoded = await admin.auth().verifyIdToken(idToken);
-        const adminUser = await Admin.findOne({ email: decoded.email });
-        if (!adminUser) return res.status(404).json({ success: false, message: 'Admin not found' });
 
-        const token = jwt.sign({ id: adminUser._id, email: adminUser.email, role: adminUser.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        const refreshToken = jwt.sign({ id: adminUser._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+        console.log('✅ Token verified');
+        console.log('Email:', decoded.email);
+        console.log('UID:', decoded.uid);
 
-        res.json({
+        // Find admin in database
+        const adminUser = await Admin.findOne({
+            email: decoded.email
+        });
+
+        console.log('Admin found:', !!adminUser);
+
+        if (!adminUser) {
+            console.log('❌ Admin not found in database');
+
+            return res.status(404).json({
+                success: false,
+                message: 'Admin not found. Please sign up first.'
+            });
+        }
+
+        // Check JWT secrets
+        if (!process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET is missing in .env');
+        }
+
+        if (!process.env.REFRESH_TOKEN_SECRET) {
+            throw new Error('REFRESH_TOKEN_SECRET is missing in .env');
+        }
+
+        // Generate access token
+        const token = jwt.sign(
+            {
+                id: adminUser._id,
+                email: adminUser.email,
+                role: adminUser.role || 'admin'
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: '1h'
+            }
+        );
+
+        // Generate refresh token
+        const refreshToken = jwt.sign(
+            {
+                id: adminUser._id
+            },
+            process.env.REFRESH_TOKEN_SECRET,
+            {
+                expiresIn: '7d'
+            }
+        );
+
+        console.log('✅ JWT tokens generated');
+        console.log('========== GOOGLE LOGIN SUCCESS ==========\n');
+
+        return res.json({
             success: true,
-            admin: { id: adminUser._id, name: adminUser.name, email: adminUser.email, currentTurf: adminUser.currentTurf || {} },
+            message: 'Google login successful',
+            admin: {
+                id: adminUser._id,
+                name: adminUser.name,
+                email: adminUser.email,
+                role: adminUser.role || 'admin',
+                currentTurf: adminUser.currentTurf || {}
+            },
             token,
             refreshToken
         });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
+        console.error('\n========== GOOGLE LOGIN ERROR ==========');
+        console.error(error);
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+        console.error('========================================\n');
+
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Google login failed'
+        });
     }
 });
 router.post('/signup', async (req, res) => {
