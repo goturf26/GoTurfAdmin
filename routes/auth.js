@@ -1617,6 +1617,26 @@ router.get('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async (r
   }
 });
 
+// GALLERY COUNT ROUTE - CLOUDINARY VERSION
+router.get('/turf/:turfId/gallery/count', authenticateToken, verifyTurfOwner, async (req, res) => {
+  try {
+    const adminUser = await Admin.findById(req.admin.id);
+    const gallery = adminUser?.currentTurf?.gallery || [];
+    
+    res.json({
+      success: true,
+      data: {
+        images: gallery.length,
+        videos: 0
+      }
+    });
+  } catch (error) {
+    console.error('Gallery count error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
 // 2. ADMIN: UPLOAD GALLERY IMAGE TO CLOUDINARY
 router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, upload.single('image'), handleMulterError, async (req, res) => {
   try {
