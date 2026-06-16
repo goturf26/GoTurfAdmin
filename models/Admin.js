@@ -70,9 +70,6 @@ const turfSchema = new mongoose.Schema({
   },
   imageUrl: String,
 
-  imageUrl: String,
-
-  // === GALLERY FIELD - ADD THIS ===
   gallery: {
     type: [{
       url: { type: String, required: true },
@@ -82,8 +79,7 @@ const turfSchema = new mongoose.Schema({
     default: []
   },
 
-  // Operational Time Fields
-  operationStartTime: {
+
 
 
   // Operational Time Fields
