@@ -30,7 +30,7 @@ console.log(
   "PRIVATE_KEY =",
   process.env.FIREBASE_PRIVATE_KEY ? "EXISTS" : "MISSING"
 );
-
+console.log("Firebase Apps Count =", admin.getApps().length);
 try {
     if (!admin.getApps().length) {
 
