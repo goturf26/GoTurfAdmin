@@ -6,7 +6,6 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
 const authenticateToken = require('../middleware/auth');
@@ -23,8 +22,7 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - FIXED ====================
-const admin = require('firebase-admin');
+// ==================== FIREBASE ADMIN SDK - FIXED FOR RENDER ====================
 const { getAuth } = require('firebase-admin/auth');
 
 console.log("🔥 Firebase Initialization Starting...");
@@ -47,13 +45,13 @@ try {
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing in Render!");
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing!");
     }
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
 }
 
-// Global helper
+// Helper
 const initializeFirebase = () => firebaseInitialized;
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
@@ -312,7 +310,7 @@ router.post('/google-login', async (req, res) => {
 
         if (!firebaseInitialized) {
             console.error("❌ Firebase not initialized!");
-            return res.status(500).json({ success: false, message: 'Firebase not configured on server' });
+            return res.status(500).json({ success: false, message: 'Firebase not configured' });
         }
 
         const decoded = await getAuth().verifyIdToken(idToken);
