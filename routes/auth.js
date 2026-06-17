@@ -6,7 +6,6 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const { getAuth } = require('firebase-admin/auth');
 
 const authenticateToken = require('../middleware/auth');
 const multer = require('multer');
