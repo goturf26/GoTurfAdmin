@@ -1828,7 +1828,7 @@ router.get('/public/turf/:turfId/gallery', async (req, res) => {
     
     res.json({ success: true, data: gallery });
   } catch (error) {
-    console.error('Public gallery error:', error);
+    console.error('Public gallery error:', error);a
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
