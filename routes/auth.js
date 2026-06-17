@@ -23,8 +23,10 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// Firebase Admin Init - BEST FOR PRODUCTION
-// ==================== FIREBASE ADMIN SDK - FIXED FOR RENDER ====================
+// ==================== FIREBASE ADMIN SDK - FIXED ====================
+const admin = require('firebase-admin');
+const { getAuth } = require('firebase-admin/auth');
+
 console.log("🔥 Firebase Initialization Starting...");
 
 let firebaseInitialized = false;
@@ -33,22 +35,25 @@ try {
     if (admin.apps?.length > 0) {
         console.log("✅ Firebase already initialized");
         firebaseInitialized = true;
-    } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    } 
+    else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
+        
         console.log("✅ Firebase Admin Initialized Successfully from Environment Variable");
         firebaseInitialized = true;
-    } else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing!");
+    } 
+    else {
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing in Render!");
     }
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
-    console.error("Make sure the JSON is pasted correctly in Render Environment Variables");
 }
 
-// Global function for safety
+// Global helper
 const initializeFirebase = () => firebaseInitialized;
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
@@ -300,40 +305,28 @@ router.post('/google-login', async (req, res) => {
         const { idToken } = req.body;
 
         if (!idToken) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'ID Token is required' 
-            });
+            return res.status(400).json({ success: false, message: 'ID Token is required' });
         }
 
         console.log('✅ ID Token received');
 
         if (!firebaseInitialized) {
-            console.error("❌ Firebase not initialized before Google login");
-            return res.status(500).json({ success: false, message: 'Firebase not configured' });
+            console.error("❌ Firebase not initialized!");
+            return res.status(500).json({ success: false, message: 'Firebase not configured on server' });
         }
 
         const decoded = await getAuth().verifyIdToken(idToken);
 
         console.log('✅ Token verified for:', decoded.email);
 
-        const adminUser = await Admin.findOne({ 
-            email: decoded.email?.toLowerCase() 
-        });
+        const adminUser = await Admin.findOne({ email: decoded.email?.toLowerCase() });
 
         if (!adminUser) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Admin not found. Please sign up first.' 
-            });
+            return res.status(404).json({ success: false, message: 'Admin not found. Please sign up first.' });
         }
 
         const token = jwt.sign(
-            { 
-                id: adminUser._id, 
-                email: adminUser.email, 
-                role: adminUser.role || 'admin' 
-            },
+            { id: adminUser._id, email: adminUser.email, role: adminUser.role || 'admin' },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
