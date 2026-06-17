@@ -22,8 +22,10 @@ const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
 // ==================== FIREBASE ADMIN SDK - FIXED CREDENTIAL ====================
-const admin = require('firebase-admin');
-const { getAuth } = require('firebase-admin/auth');
+const firebaseAdmin = require('firebase-admin');
+console.log("Firebase object:", firebaseAdmin);
+console.log("Credential:", firebaseAdmin.credential);
+
 
 console.log("🔥 [FIREBASE] Initialization Starting...");
 console.log("FIREBASE_SERVICE_ACCOUNT length:", process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0);
@@ -31,7 +33,7 @@ console.log("FIREBASE_SERVICE_ACCOUNT length:", process.env.FIREBASE_SERVICE_ACC
 let firebaseInitialized = false;
 
 try {
-    if (admin.apps?.length > 0) {
+    if (firebaseAdmin.apps?.length > 0) {
         console.log("✅ [FIREBASE] Already initialized");
         firebaseInitialized = true;
     } 
@@ -41,9 +43,9 @@ try {
         console.log("✅ [FIREBASE] JSON parsed. Project ID:", serviceAccount.project_id);
 
         // Fixed credential call
-        const credential = admin.credential.cert(serviceAccount);
-        admin.initializeApp({
-            credential: credential
+        const credential = firebaseAdmin.credential.cert(serviceAccount);
+        firebaseAdmin.initializeApp({
+          credential: credential
         });
 
         console.log("✅ [FIREBASE] Admin Initialized Successfully");
@@ -69,7 +71,7 @@ async function sendNotificationToTopic(topic, title, body, data = {}) {
     };
 
     try {
-        await admin.messaging().send(message);
+        await firebaseAdmin.messaging().send(message);
         console.log(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] TOURNAMENT NOTIFICATION SENT to ${topic}: ${title}`);
     } catch (error) {
         console.error(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] FCM Error (Tournament Alert): ${error.message}`);
@@ -321,7 +323,7 @@ router.post('/google-login', async (req, res) => {
             });
         }
 
-        const decoded = await getAuth().verifyIdToken(idToken);
+        const decoded = await firebaseAdmin.auth().verifyIdToken(idToken);
 
         console.log('✅ Token verified for:', decoded.email);
 
@@ -695,7 +697,7 @@ router.post('/update-turf', authenticateToken, async (req, res) => {
             { new: true }
         );
 
-        res.json({ success: true, turf: updatedAdmin.currentTurf });
+        res.json({ success: true, turf: updatedadminDoc.currentTurf });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
@@ -1324,8 +1326,8 @@ router.post('/tournament/register', async (req, res) => {
 });
 // CLEAN EMPTY/INVALID TOURNAMENTS BEFORE EVERY SAVE — THIS FIXES THE ERROR
 const cleanInvalidTournaments = (admin) => {
-  if (admin.currentTurf && Array.isArray(admin.currentTurf.tournaments)) {
-    admin.currentTurf.tournaments = admin.currentTurf.tournaments.filter(t =>
+  if (adminDoc.currentTurf && Array.isArray(adminDoc.currentTurf.tournaments)) {
+    adminDoc.currentTurf.tournaments = adminDoc.currentTurf.tournaments.filter(t =>
       t &&
       t.tournamentStartDate &&
       t.tournamentEndDate &&
@@ -1750,7 +1752,7 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
 
-    console.log(`✅ Gallery image pushed successfully. Total images now: ${updatedAdmin.currentTurf.gallery?.length || 0}`);
+    console.log(`✅ Gallery image pushed successfully. Total images now: ${updatedadminDoc.currentTurf.gallery?.length || 0}`);
 
     res.json({
       success: true,
@@ -1815,10 +1817,10 @@ cron.schedule('*/30 * * * *', async () => {  // Every 30 minutes
 
         let totalSent = 0;
 
-        for (const admin of admins) {
-            if (!admin.currentTurf || !Array.isArray(admin.currentTurf.tournaments)) continue;
+        for (const adminDoc of admins) { {
+            if (!adminDoc.currentTurf || !Array.isArray(adminDoc.currentTurf.tournaments)) continue;
 
-            for (const tournament of admin.currentTurf.tournaments) {
+            for (const tournament of adminDoc.currentTurf.tournaments) {
                 if (tournament.status !== 'upcoming') continue;
 
                 const endDate = new Date(tournament.registrationEndDate);
@@ -1838,12 +1840,12 @@ cron.schedule('*/30 * * * *', async () => {  // Every 30 minutes
                                 const message = {
                                     notification: {
                                         title: `⏰ ${r.text} left to register!`,
-                                        body: `${tournament.name} registration closing soon at ${admin.currentTurf.turfName}! ⚡`,
+                                        body: `${tournament.name} registration closing soon at ${adminDoc.currentTurf.turfName}! ⚡`,
                                     },
                                     data: {
                                         type: 'tournament_registration_reminder',
                                         tournamentId: tournament.tournamentId,
-                                        turfId: admin.currentTurf.id,
+                                        turfId: adminDoc.currentTurf.id,
                                         hoursLeft: r.hours.toString()
                                     },
                                     token: team.fcmToken
@@ -1867,7 +1869,7 @@ cron.schedule('*/30 * * * *', async () => {  // Every 30 minutes
             console.log(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] ✅ Sent ${totalSent} individual tournament registration reminders`);
         }
 
-    } catch (error) {
+    } }catch (error) {
         console.error(`[${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}] ❌ Tournament reminder cron error:`, error.message);
     }
 });
