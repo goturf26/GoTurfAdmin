@@ -21,12 +21,13 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - FINAL DEBUG ====================
+// ==================== FIREBASE ADMIN SDK - LAST ATTEMPT ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
 console.log("🔥 Firebase Initialization Starting...");
 console.log("FIREBASE_SERVICE_ACCOUNT exists?", !!process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log("Length:", process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0);
 
 let firebaseInitialized = false;
 
@@ -36,9 +37,9 @@ try {
         firebaseInitialized = true;
     } 
     else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        console.log("✅ Found env variable. Trying to parse JSON...");
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        console.log("✅ JSON parsed successfully. Project ID:", serviceAccount.project_id);
+        console.log("✅ Trying to parse JSON...");
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.trim());
+        console.log("✅ JSON parsed successfully! Project ID:", serviceAccount.project_id);
 
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
@@ -48,10 +49,11 @@ try {
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT is MISSING in Render!");
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT is MISSING in Render Environment!");
     }
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
+    console.error("Error Type:", err.name);
 }
 
 const initializeFirebase = () => firebaseInitialized;
