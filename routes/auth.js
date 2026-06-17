@@ -21,39 +21,38 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - LAST ATTEMPT ====================
+// ==================== FIREBASE ADMIN SDK - EMERGENCY DEBUG ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
-console.log("🔥 Firebase Initialization Starting...");
+console.log("🔥 [FIREBASE] Initialization Starting...");
 console.log("FIREBASE_SERVICE_ACCOUNT exists?", !!process.env.FIREBASE_SERVICE_ACCOUNT);
-console.log("Length:", process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0);
+console.log("FIREBASE_SERVICE_ACCOUNT length:", process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0);
 
 let firebaseInitialized = false;
 
 try {
     if (admin.apps?.length > 0) {
-        console.log("✅ Firebase already initialized");
+        console.log("✅ [FIREBASE] Already initialized");
         firebaseInitialized = true;
     } 
-    else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        console.log("✅ Trying to parse JSON...");
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.trim());
-        console.log("✅ JSON parsed successfully! Project ID:", serviceAccount.project_id);
+    else if (process.env.FIREBASE_SERVICE_ACCOUNT && process.env.FIREBASE_SERVICE_ACCOUNT.length > 50) {
+        console.log("✅ [FIREBASE] Found env variable. Parsing JSON...");
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log("✅ [FIREBASE] JSON parsed. Project ID:", serviceAccount.project_id);
 
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
 
-        console.log("✅ Firebase Admin Initialized Successfully");
+        console.log("✅ [FIREBASE] Admin Initialized Successfully");
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT is MISSING in Render Environment!");
+        console.error("❌ [FIREBASE] SERVICE_ACCOUNT missing or too short in Render!");
     }
 } catch (err) {
-    console.error("❌ Firebase Init Failed:", err.message);
-    console.error("Error Type:", err.name);
+    console.error("❌ [FIREBASE] Init Failed:", err.message);
 }
 
 const initializeFirebase = () => firebaseInitialized;
