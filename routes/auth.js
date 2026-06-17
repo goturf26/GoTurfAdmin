@@ -6,7 +6,6 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// ==================== FIREBASE ADMIN SDK (ONLY ONCE) ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
@@ -25,32 +24,32 @@ const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
 // Firebase Admin Init - BEST FOR PRODUCTION
+// ==================== FIREBASE ADMIN SDK - FIXED FOR RENDER ====================
+console.log("🔥 Firebase Initialization Starting...");
+
+let firebaseInitialized = false;
+
 try {
     if (admin.apps?.length > 0) {
         console.log("✅ Firebase already initialized");
-        return;
-    }
-
-    let serviceAccount;
-
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        console.log("✅ Firebase loaded from Environment Variable (Recommended)");
+        firebaseInitialized = true;
+    } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
+        console.log("✅ Firebase Admin Initialized Successfully from Environment Variable");
+        firebaseInitialized = true;
     } else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable missing!");
-        return;
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing!");
     }
-
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-
-    console.log("✅ Firebase Admin Initialized Successfully");
-
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
+    console.error("Make sure the JSON is pasted correctly in Render Environment Variables");
 }
 
+// Global function for safety
+const initializeFirebase = () => firebaseInitialized;
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
     if (!topic || !title || !body) return;
@@ -309,7 +308,11 @@ router.post('/google-login', async (req, res) => {
 
         console.log('✅ ID Token received');
 
-        // No need to call initializeFirebase() again — it's already done at the top
+        if (!firebaseInitialized) {
+            console.error("❌ Firebase not initialized before Google login");
+            return res.status(500).json({ success: false, message: 'Firebase not configured' });
+        }
+
         const decoded = await getAuth().verifyIdToken(idToken);
 
         console.log('✅ Token verified for:', decoded.email);
