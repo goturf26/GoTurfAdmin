@@ -24,47 +24,32 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE INITIALIZATION ====================
-console.log("🔥 AUTH ROUTES LOADED");
-
-console.log("PROJECT_ID =", process.env.FIREBASE_PROJECT_ID ? "✅" : "❌");
-console.log("CLIENT_EMAIL =", process.env.FIREBASE_CLIENT_EMAIL ? "✅" : "❌");
-console.log("PRIVATE_KEY =", process.env.FIREBASE_PRIVATE_KEY ? "✅" : "❌");
-
-const initializeFirebase = () => {
-  try {
+// Firebase Admin Init - BEST FOR PRODUCTION
+try {
     if (admin.apps?.length > 0) {
-      console.log("✅ Firebase already initialized");
-      return true;
+        console.log("✅ Firebase already initialized");
+        return;
     }
 
-    if (!process.env.FIREBASE_PROJECT_ID || 
-        !process.env.FIREBASE_CLIENT_EMAIL || 
-        !process.env.FIREBASE_PRIVATE_KEY) {
-      console.error("❌ Firebase credentials missing!");
-      return false;
-    }
+    let serviceAccount;
 
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log("✅ Firebase loaded from Environment Variable (Recommended)");
+    } else {
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable missing!");
+        return;
+    }
 
     admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: privateKey,
-      })
+        credential: admin.credential.cert(serviceAccount)
     });
 
     console.log("✅ Firebase Admin Initialized Successfully");
-    return true;
-  } catch (err) {
+
+} catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
-    return false;
-  }
-};
-
-initializeFirebase();
-
+}
 
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
@@ -310,69 +295,79 @@ router.post('/login', async (req, res) => {
     }
 });
 router.post('/google-login', async (req, res) => {
-  console.log('\n========== GOOGLE LOGIN START ==========');
+    console.log('\n========== GOOGLE LOGIN START ==========');
 
-  try {
-    const { idToken } = req.body;
+    try {
+        const { idToken } = req.body;
 
-    if (!idToken) {
-      return res.status(400).json({ success: false, message: 'ID Token is required' });
+        if (!idToken) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'ID Token is required' 
+            });
+        }
+
+        console.log('✅ ID Token received');
+
+        // No need to call initializeFirebase() again — it's already done at the top
+        const decoded = await getAuth().verifyIdToken(idToken);
+
+        console.log('✅ Token verified for:', decoded.email);
+
+        const adminUser = await Admin.findOne({ 
+            email: decoded.email?.toLowerCase() 
+        });
+
+        if (!adminUser) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Admin not found. Please sign up first.' 
+            });
+        }
+
+        const token = jwt.sign(
+            { 
+                id: adminUser._id, 
+                email: adminUser.email, 
+                role: adminUser.role || 'admin' 
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        const refreshToken = jwt.sign(
+            { id: adminUser._id },
+            process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        console.log('✅ GOOGLE LOGIN SUCCESS');
+
+        return res.json({
+            success: true,
+            message: 'Google login successful',
+            admin: {
+                id: adminUser._id,
+                name: adminUser.name,
+                email: adminUser.email,
+                role: adminUser.role || 'admin',
+                currentTurf: adminUser.currentTurf || {}
+            },
+            token,
+            refreshToken
+        });
+
+    } catch (error) {
+        console.error('\n========== GOOGLE LOGIN ERROR ==========');
+        console.error('Error:', error.message);
+        console.error('Stack:', error.stack);
+        console.error('========================================\n');
+
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Google login failed'
+        });
     }
-
-    console.log('✅ ID Token received');
-
-    // Initialize Firebase
-    if (!initializeFirebase()) {
-      return res.status(500).json({ success: false, message: 'Firebase not configured' });
-    }
-
-    const decoded = await getAuth().verifyIdToken(idToken);
-
-    console.log('✅ Token verified for:', decoded.email);
-
-    const adminUser = await Admin.findOne({ email: decoded.email?.toLowerCase() });
-
-    if (!adminUser) {
-      return res.status(404).json({ success: false, message: 'Admin not found. Please sign up first.' });
-    }
-
-    const token = jwt.sign(
-      { id: adminUser._id, email: adminUser.email, role: adminUser.role || 'admin' },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    const refreshToken = jwt.sign(
-      { id: adminUser._id },
-      process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    console.log('✅ GOOGLE LOGIN SUCCESS');
-    return res.json({
-      success: true,
-      message: 'Google login successful',
-      admin: {
-        id: adminUser._id,
-        name: adminUser.name,
-        email: adminUser.email,
-        role: adminUser.role || 'admin',
-        currentTurf: adminUser.currentTurf || {}
-      },
-      token,
-      refreshToken
-    });
-
-  } catch (error) {
-    console.error('\n========== GOOGLE LOGIN ERROR ==========');
-    console.error(error.message);
-    console.error('========================================\n');
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Google login failed'
-    });
-  }
 });
 router.post('/signup', async (req, res) => {
   const { name, email, phone, password } = req.body;
