@@ -21,7 +21,7 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - FINAL FIXED ====================
+// ==================== FIREBASE ADMIN SDK - FINAL WORKING VERSION ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
@@ -35,20 +35,24 @@ try {
         firebaseInitialized = true;
     } 
     else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log("✅ FIREBASE_SERVICE_ACCOUNT found in env. Parsing JSON...");
         
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        console.log("✅ JSON parsed successfully. Project ID:", serviceAccount.project_id);
+
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
-        
+
         console.log("✅ Firebase Admin Initialized Successfully from Environment Variable");
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT environment variable is missing in Render!");
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT is missing in Render Environment Variables!");
     }
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
+    console.error("Check if JSON is valid and complete in Render env");
 }
 
 // Global helper
@@ -307,10 +311,13 @@ router.post('/google-login', async (req, res) => {
         }
 
         console.log('✅ ID Token received');
+        console.log('Firebase Initialized Status:', firebaseInitialized);
 
         if (!firebaseInitialized) {
-            console.error("❌ Firebase not initialized!");
-            return res.status(500).json({ success: false, message: 'Firebase not configured on server' });
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Firebase not initialized on server. Check Render logs.' 
+            });
         }
 
         const decoded = await getAuth().verifyIdToken(idToken);
