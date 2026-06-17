@@ -21,12 +21,11 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - EMERGENCY DEBUG ====================
+// ==================== FIREBASE ADMIN SDK - FIXED CREDENTIAL ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
 console.log("🔥 [FIREBASE] Initialization Starting...");
-console.log("FIREBASE_SERVICE_ACCOUNT exists?", !!process.env.FIREBASE_SERVICE_ACCOUNT);
 console.log("FIREBASE_SERVICE_ACCOUNT length:", process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0);
 
 let firebaseInitialized = false;
@@ -36,23 +35,26 @@ try {
         console.log("✅ [FIREBASE] Already initialized");
         firebaseInitialized = true;
     } 
-    else if (process.env.FIREBASE_SERVICE_ACCOUNT && process.env.FIREBASE_SERVICE_ACCOUNT.length > 50) {
-        console.log("✅ [FIREBASE] Found env variable. Parsing JSON...");
+    else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        console.log("✅ [FIREBASE] Parsing JSON...");
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         console.log("✅ [FIREBASE] JSON parsed. Project ID:", serviceAccount.project_id);
 
+        // Fixed credential call
+        const credential = admin.credential.cert(serviceAccount);
         admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
+            credential: credential
         });
 
         console.log("✅ [FIREBASE] Admin Initialized Successfully");
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ [FIREBASE] SERVICE_ACCOUNT missing or too short in Render!");
+        console.error("❌ [FIREBASE] SERVICE_ACCOUNT missing!");
     }
 } catch (err) {
     console.error("❌ [FIREBASE] Init Failed:", err.message);
+    console.error("Error name:", err.name);
 }
 
 const initializeFirebase = () => firebaseInitialized;
