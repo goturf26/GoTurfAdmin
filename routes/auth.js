@@ -21,7 +21,7 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - DEBUG VERSION ====================
+// ==================== FIREBASE ADMIN SDK - FINAL DEBUG ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
@@ -36,9 +36,9 @@ try {
         firebaseInitialized = true;
     } 
     else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        console.log("✅ Found env variable. Trying to parse...");
+        console.log("✅ Found env variable. Trying to parse JSON...");
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        console.log("✅ JSON parsed successfully. Project ID:", serviceAccount.project_id || "unknown");
+        console.log("✅ JSON parsed successfully. Project ID:", serviceAccount.project_id);
 
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
@@ -48,7 +48,7 @@ try {
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT is MISSING!");
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT is MISSING in Render!");
     }
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
