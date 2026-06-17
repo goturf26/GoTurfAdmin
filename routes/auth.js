@@ -1782,6 +1782,42 @@ router.delete('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async
   }
 });
 
+router.get('/public/turf/:turfId', async (req, res) => {
+  try {
+    const { turfId } = req.params;
+
+    // Find turf by id
+    const adminUser = await Admin.findOne({
+      'currentTurf.id': turfId
+    });
+
+    if (!adminUser || !adminUser.currentTurf) {
+      return res.status(404).json({
+        success: false,
+        message: 'Turf not found'
+      });
+    }
+
+    const turf = adminUser.currentTurf;
+
+    return res.json({
+      success: true,
+      turf: {
+        operationStartTime: turf.operationStartTime || '06:00 AM',
+        operationEndTime: turf.operationEndTime || '10:00 PM'
+      }
+    });
+
+  } catch (error) {
+    console.error('Public turf timing error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 // 4. PUBLIC: GET GALLERY (User App-க்கு)
 router.get('/public/turf/:turfId/gallery', async (req, res) => {
   try {
