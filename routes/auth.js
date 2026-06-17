@@ -21,11 +21,12 @@ const { cloudinary, upload } = require('../config/cloudinary');
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 30000 });
 
-// ==================== FIREBASE ADMIN SDK - FINAL WORKING VERSION ====================
+// ==================== FIREBASE ADMIN SDK - DEBUG VERSION ====================
 const admin = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 
 console.log("🔥 Firebase Initialization Starting...");
+console.log("FIREBASE_SERVICE_ACCOUNT exists?", !!process.env.FIREBASE_SERVICE_ACCOUNT);
 
 let firebaseInitialized = false;
 
@@ -35,27 +36,24 @@ try {
         firebaseInitialized = true;
     } 
     else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        console.log("✅ FIREBASE_SERVICE_ACCOUNT found in env. Parsing JSON...");
-        
+        console.log("✅ Found env variable. Trying to parse...");
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        console.log("✅ JSON parsed successfully. Project ID:", serviceAccount.project_id);
+        console.log("✅ JSON parsed successfully. Project ID:", serviceAccount.project_id || "unknown");
 
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
 
-        console.log("✅ Firebase Admin Initialized Successfully from Environment Variable");
+        console.log("✅ Firebase Admin Initialized Successfully");
         firebaseInitialized = true;
     } 
     else {
-        console.error("❌ FIREBASE_SERVICE_ACCOUNT is missing in Render Environment Variables!");
+        console.error("❌ FIREBASE_SERVICE_ACCOUNT is MISSING!");
     }
 } catch (err) {
     console.error("❌ Firebase Init Failed:", err.message);
-    console.error("Check if JSON is valid and complete in Render env");
 }
 
-// Global helper
 const initializeFirebase = () => firebaseInitialized;
 // === NOTIFICATION HELPER FUNCTION ===
 async function sendNotificationToTopic(topic, title, body, data = {}) {
