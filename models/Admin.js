@@ -118,7 +118,7 @@ const turfSchema = new mongoose.Schema({
       tournamentId: {
         type: String,
         required: true,
-        unique: true,
+   
       },
       name: {
         type: String,
