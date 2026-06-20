@@ -1747,7 +1747,7 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
 
-    console.log(`✅ Gallery image pushed successfully. Total images now: ${updatedAdminDoc.currentTurf.gallery?.length || 0}`);
+    console.log(`✅ Gallery image pushed successfully. Total images now: ${updatedAdmin.currentTurf.gallery?.length || 0}`);
 
     res.json({
       success: true,
