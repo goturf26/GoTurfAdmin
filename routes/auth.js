@@ -1173,28 +1173,7 @@ router.get('/tournament/:tournamentId/teams', authenticateToken, async (req, res
         if (!tournament) {
             return res.status(404).json({ success: false, message: 'Tournament not found' });
         }
-
-        await client.connect();
-        const db = client.db('goturf');
-        const usersCollection = db.collection('users');
-
-        const teamDocs = await usersCollection
-            .find({ 'registeredTournaments.tournamentId': tournamentId })
-            .toArray();
-
-        const teams = teamDocs.map(doc => {
-            const reg = doc.registeredTournaments.find(r => r.tournamentId === tournamentId);
-            return {
-                teamName: reg.teamName || 'Unknown',
-                captainName: reg.captainName || 'Unknown',
-                captainPhone: reg.captainPhone || 'N/A',
-                playerNames: Array.isArray(reg.playerNames) ? reg.playerNames : [],
-                registeredAt: reg.registeredAt || new Date(),
-                paymentId: reg.paymentId || null,
-                userName: doc.userName,
-                userPhone: doc.phone
-            };
-        });
+        const teams = tournament.registeredTeams || [];
 
         res.json({
             success: true,
@@ -1212,9 +1191,7 @@ router.get('/tournament/:tournamentId/teams', authenticateToken, async (req, res
     } catch (error) {
         console.error('Team fetch error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
-    } finally {
-        await client.close();
-    }
+    } 
 });
 // ——————————————————————————————————————
 // REGISTER TEAM - FINAL FIXED & SAFE VERSION
