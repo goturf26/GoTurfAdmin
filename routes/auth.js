@@ -1174,6 +1174,11 @@ router.get('/tournament/:tournamentId/teams', authenticateToken, async (req, res
             return res.status(404).json({ success: false, message: 'Tournament not found' });
         }
         const teams = tournament.registeredTeams || [];
+        console.log("TOURNAMENT FOUND:", tournament);
+        console.log("REGISTERED TEAMS:", tournament.registeredTeams);
+        console.log("TEAMS LENGTH:", teams.length);
+
+
 
         res.json({
             success: true,
