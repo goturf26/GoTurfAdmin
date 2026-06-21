@@ -304,7 +304,7 @@ adminSchema.pre('save', async function (next) {
 
 // JWT Token Methods
 adminSchema.methods.generateAuthToken = function () {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, { expiresIn: '10s' });
 };
 
 adminSchema.methods.generateRefreshToken = function () {

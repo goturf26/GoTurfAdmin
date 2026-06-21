@@ -106,7 +106,7 @@ router.post('/refresh-token', authenticateRefreshToken, async (req, res) => {
         const accessToken = jwt.sign(
             { id: adminUser._id, email: adminUser.email, role: adminUser.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '10s' }
         );
         const refreshToken = jwt.sign(
             { id: adminUser._id, email: adminUser.email, role: adminUser.role },
@@ -263,7 +263,7 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign(
             { id: adminUser._id, role: 'admin' },
             process.env.JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '10s' }
         );
 
         const refreshToken = jwt.sign(
@@ -331,7 +331,7 @@ router.post('/google-login', async (req, res) => {
         const token = jwt.sign(
             { id: adminUser._id, email: adminUser.email, role: adminUser.role || 'admin' },
             process.env.JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '10s' }
         );
 
         const refreshToken = jwt.sign(
@@ -429,7 +429,7 @@ router.post('/signup', async (req, res) => {
     const token = jwt.sign(
       { id: newAdmin._id, role: 'admin' },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '10s' }
     );
 
     const refreshToken = jwt.sign(
@@ -1935,7 +1935,7 @@ router.post('/super-admin-login', async (req, res) => {
     const token = jwt.sign(
       { id: superAdmin._id, role: 'super_admin' },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '10s' }
     );
 
     const refreshToken = jwt.sign(
