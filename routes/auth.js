@@ -111,7 +111,7 @@ router.post('/refresh-token', authenticateRefreshToken, async (req, res) => {
         const refreshToken = jwt.sign(
             { id: adminUser._id, email: adminUser.email, role: adminUser.role },
             process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '90d' }
         );
 
         res.json({ success: true, token: accessToken, refreshToken });
@@ -269,7 +269,7 @@ router.post('/login', async (req, res) => {
         const refreshToken = jwt.sign(
             { id: adminUser._id },
             process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '90d' }
         );
 
         // Step 6: SUCCESS
@@ -337,7 +337,7 @@ router.post('/google-login', async (req, res) => {
         const refreshToken = jwt.sign(
             { id: adminUser._id },
             process.env.REFRESH_TOKEN_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '90d' }
         );
 
         console.log('✅ GOOGLE LOGIN SUCCESS');
@@ -435,7 +435,7 @@ router.post('/signup', async (req, res) => {
     const refreshToken = jwt.sign(
       { id: newAdmin._id },
       process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '90d' }
     );
 
     // 6. SUCCESS
@@ -1828,7 +1828,7 @@ router.get('/public/turf/:turfId/gallery', async (req, res) => {
     
     res.json({ success: true, data: gallery });
   } catch (error) {
-    console.error('Public gallery error:', error);a
+    console.error('Public gallery error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -1935,13 +1935,13 @@ router.post('/super-admin-login', async (req, res) => {
     const token = jwt.sign(
       { id: superAdmin._id, role: 'super_admin' },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
     const refreshToken = jwt.sign(
       { id: superAdmin._id },
       process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '90d' }
     );
 
     res.json({

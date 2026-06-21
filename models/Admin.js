@@ -308,7 +308,7 @@ adminSchema.methods.generateAuthToken = function () {
 };
 
 adminSchema.methods.generateRefreshToken = function () {
-  return jwt.sign({ id: this._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: this._id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '90d' });
 };
 
 // Update Turf Method
