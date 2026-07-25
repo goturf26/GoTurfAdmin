@@ -705,6 +705,31 @@ router.get('/turf/:turfId', authenticateToken, async (req, res) => {
         const adminUser = await Admin.findOne({ _id: adminId, 'currentTurf.id': turfId });
         if (!adminUser) return res.status(404).json({ success: false, message: 'Turf not found' });
         const turf = adminUser.currentTurf;
+        const users = await User.find({
+    'upcomingBookings.turfId': turfId,
+    'upcomingBookings.status': {
+        $in: ['confirmed', 'completed']
+    }
+}).select('upcomingBookings').lean();
+
+const confirmedSlots = [];
+
+users.forEach(user => {
+    (user.upcomingBookings || []).forEach(booking => {
+
+        if (booking.turfId !== turfId) return;
+
+        (booking.slots || []).forEach(slot => {
+
+            confirmedSlots.push({
+                date: slot.date,
+                slot: slot.slot
+            });
+
+        });
+
+    });
+});
         res.json({
             success: true,
             turf: {
@@ -719,7 +744,7 @@ router.get('/turf/:turfId', authenticateToken, async (req, res) => {
                 hasDrinkingFacilities: turf.hasDrinkingFacilities,
                 heldSlots: turf.heldSlots || [],
                 heldDays: turf.heldDays || [],
-                confirmedSlots: turf.confirmedSlots || [],
+                confirmedSlots: confirmedSlots,
                 operationStartTime: turf.operationStartTime || '12:00 AM',
                 operationEndTime: turf.operationEndTime || '12:00 AM',
             },
@@ -1336,7 +1361,22 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     const alreadyHeld = (turf.heldSlots || []).some(h => h.date === date && h.slot === slot) ||
                         (turf.heldDays || []).some(d => d.date === date);
 
-    const isBooked = (turf.confirmedSlots || []).some(c => c.date === date && c.slot === slot);
+    const bookedUser = await User.findOne({
+  upcomingBookings: {
+    $elemMatch: {
+      turfId,
+      status: { $in: ['confirmed', 'completed'] },
+      slots: {
+        $elemMatch: {
+          date,
+          slot
+        }
+      }
+    }
+  }
+});
+
+const isBooked = !!bookedUser;
 
     if (alreadyHeld) {
       return res.status(400).json({ success: false, message: 'Slot already held' });
@@ -1393,7 +1433,21 @@ router.post('/hold-day', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Day already held' });
     }
 
-    const hasBookings = (turf.confirmedSlots || []).some(c => c.date === date);
+    const bookedUser = await User.findOne({
+  upcomingBookings: {
+    $elemMatch: {
+      turfId,
+      status: { $in: ['confirmed', 'completed'] },
+      slots: {
+        $elemMatch: {
+          date
+        }
+      }
+    }
+  }
+});
+
+const hasBookings = !!bookedUser;
     if (hasBookings) {
       return res.status(400).json({ success: false, message: 'Cannot hold full day: Some slots are booked' });
     }
