@@ -1377,7 +1377,10 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
 const allHeldSlots = await heldSlotsCollection.find({}).toArray();
 
 console.log("HeldSlots count:", allHeldSlots.length);
-console.log("HeldSlots:", JSON.stringify(allHeldSlots, null, 2));
+allHeldSlots.forEach((doc, index) => {
+    console.log(`HeldSlot ${index + 1}`);
+    console.log(doc);
+});
 
     const now = new Date();
 
@@ -1409,7 +1412,15 @@ console.log("HeldSlots:", JSON.stringify(allHeldSlots, null, 2));
     });
 
     const isBooked = !!bookedUser;
+    console.log("Searching for:");
+console.log({
+    turfId,
+    date,
+    slot,
+    now
+});
     const reservedSlot = await heldSlotsCollection.findOne({
+      
   turfId,
   date,
   slot,
@@ -1417,6 +1428,7 @@ console.log("HeldSlots:", JSON.stringify(allHeldSlots, null, 2));
     $gt: now
   }
 });
+console.log("reservedSlot =", reservedSlot);
 
 const isReserved = !!reservedSlot;
 
