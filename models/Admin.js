@@ -92,16 +92,17 @@ const turfSchema = new mongoose.Schema({
     default: '12:00 AM',
   },
 
-  heldSlots: {
-    type: [{
-      date: String,
-      slot: String,
-      reason: String,
-      adminId: String,
-      timestamp: { type: Date, default: Date.now },
-    }],
-    default: [],
-  },
+  heldSlots: [{
+  sport: {
+    type: String,
+    required: true,
+  },
+  date: String,
+  slot: String,
+  reason: String,
+  adminId: String,
+  timestamp: Date
+}],
   heldDays: {
     type: [{
       date: String,
