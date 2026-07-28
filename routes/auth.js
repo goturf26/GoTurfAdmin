@@ -1344,49 +1344,104 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     const { turfId, date, slot, adminId, reason = 'Held by admin' } = req.body;
 
     if (!turfId || !date || !slot || !adminId) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
     }
 
     if (adminId !== req.admin.id.toString()) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized'
+      });
     }
 
     const adminUser = await Admin.findById(adminId);
-    if (!adminUser || !adminUser.currentTurf || adminUser.currentTurf.id !== turfId) {
-      return res.status(404).json({ success: false, message: 'Turf not found' });
+
+    if (
+      !adminUser ||
+      !adminUser.currentTurf ||
+      adminUser.currentTurf.id !== turfId
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: 'Turf not found'
+      });
     }
 
     const turf = adminUser.currentTurf;
 
-    const alreadyHeld = (turf.heldSlots || []).some(h => h.date === date && h.slot === slot) ||
-                        (turf.heldDays || []).some(d => d.date === date);
+    // MongoDB collection used by User Backend
+    const heldSlotsCollection = mongoose.connection.collection('heldslots');
+    const now = new Date();
 
+    // Check if already held by admin
+    const alreadyHeld =
+      (turf.heldSlots || []).some(
+        h => h.date === date && h.slot === slot
+      ) ||
+      (turf.heldDays || []).some(
+        d => d.date === date
+      );
+
+    // Check confirmed bookings
     const bookedUser = await User.findOne({
-  upcomingBookings: {
-    $elemMatch: {
-      turfId,
-      status: { $in: ['confirmed', 'completed'] },
-      slots: {
+      upcomingBookings: {
         $elemMatch: {
-          date,
-          slot
+          turfId,
+          status: {
+            $in: ['confirmed', 'completed']
+          },
+          slots: {
+            $elemMatch: {
+              date,
+              slot
+            }
+          }
         }
       }
-    }
-  }
-});
+    });
 
-const isBooked = !!bookedUser;
+    const isBooked = !!bookedUser;
 
+    // Check temporary reservation (payment in progress)
+    const reservedSlot = await heldSlotsCollection.findOne({
+      turfId,
+      date,
+      slot,
+      expiresAt: {
+        $gt: now
+      }
+    });
+
+    const isReserved = !!reservedSlot;
+
+    // Validation
     if (alreadyHeld) {
-      return res.status(400).json({ success: false, message: 'Slot already held' });
+      return res.status(400).json({
+        success: false,
+        message: 'Slot already held'
+      });
     }
 
     if (isBooked) {
-      return res.status(400).json({ success: false, message: 'Cannot hold: Slot already booked by user' });
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot hold: Slot already booked by user'
+      });
     }
 
+    if (isReserved) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot hold: Slot is currently reserved by a customer'
+      });
+    }
+
+    // Hold slot
     turf.heldSlots = turf.heldSlots || [];
+
     turf.heldSlots.push({
       date,
       slot,
@@ -1395,19 +1450,24 @@ const isBooked = !!bookedUser;
       timestamp: new Date()
     });
 
-    // THIS LINE SAVES YOUR LIFE
     cleanInvalidTournaments(adminUser);
 
     await adminUser.save();
 
-    res.json({ success: true, message: 'Slot held successfully' });
+    return res.json({
+      success: true,
+      message: 'Slot held successfully'
+    });
 
   } catch (error) {
     console.error('Hold slot error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
   }
 });
-
 // HOLD FULL DAY - FIXED
 router.post('/hold-day', authenticateToken, async (req, res) => {
   try {
