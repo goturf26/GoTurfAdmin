@@ -1465,6 +1465,8 @@ const isReserved = !!reservedSlot;
     }
 
     turf.heldSlots = turf.heldSlots || [];
+    console.log(req.body);
+console.log("Sport:", sport);
 
     turf.heldSlots.push({
       sport,
