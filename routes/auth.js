@@ -1420,17 +1420,7 @@ console.log("HeldSlots:", JSON.stringify(allHeldSlots, null, 2));
 
 const isReserved = !!reservedSlot;
 
-    // NEW: Check temporary reservation made during payment
-    const reservedSlot = await HeldSlot.findOne({
-      turfId,
-      date,
-      slot,
-      expiresAt: {
-        $gt: new Date()
-      }
-    });
-
-    const isReserved = !!reservedSlot;
+    
 
     if (alreadyHeld) {
       return res.status(400).json({
