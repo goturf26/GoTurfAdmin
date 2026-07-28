@@ -1371,12 +1371,17 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     }
 
     const turf = adminUser.currentTurf;
-
-    // MongoDB collection used by User Backend
     const heldSlotsCollection = mongoose.connection.collection('heldslots');
+    console.log("Mongo DB Name:", mongoose.connection.db.databaseName);
+
+const allHeldSlots = await heldSlotsCollection.find({}).toArray();
+
+console.log("HeldSlots count:", allHeldSlots.length);
+console.log("HeldSlots:", JSON.stringify(allHeldSlots, null, 2));
+
     const now = new Date();
 
-    // Check if already held by admin
+    // Already held by admin?
     const alreadyHeld =
       (turf.heldSlots || []).some(
         h => h.date === date && h.slot === slot
@@ -1385,7 +1390,7 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
         d => d.date === date
       );
 
-    // Check confirmed bookings
+    // Already confirmed booking?
     const bookedUser = await User.findOne({
       upcomingBookings: {
         $elemMatch: {
@@ -1404,20 +1409,29 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     });
 
     const isBooked = !!bookedUser;
-
-    // Check temporary reservation (payment in progress)
     const reservedSlot = await heldSlotsCollection.findOne({
+  turfId,
+  date,
+  slot,
+  expiresAt: {
+    $gt: now
+  }
+});
+
+const isReserved = !!reservedSlot;
+
+    // NEW: Check temporary reservation made during payment
+    const reservedSlot = await HeldSlot.findOne({
       turfId,
       date,
       slot,
       expiresAt: {
-        $gt: now
+        $gt: new Date()
       }
     });
 
     const isReserved = !!reservedSlot;
 
-    // Validation
     if (alreadyHeld) {
       return res.status(400).json({
         success: false,
@@ -1432,6 +1446,8 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
       });
     }
 
+    
+
     if (isReserved) {
       return res.status(400).json({
         success: false,
@@ -1439,7 +1455,6 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
       });
     }
 
-    // Hold slot
     turf.heldSlots = turf.heldSlots || [];
 
     turf.heldSlots.push({
@@ -1454,7 +1469,7 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
 
     await adminUser.save();
 
-    return res.json({
+    res.json({
       success: true,
       message: 'Slot held successfully'
     });
@@ -1462,12 +1477,13 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Hold slot error:', error);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: 'Server error'
     });
   }
 });
+
 // HOLD FULL DAY - FIXED
 router.post('/hold-day', authenticateToken, async (req, res) => {
   try {
