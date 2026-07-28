@@ -1563,6 +1563,7 @@ const hasBookings = !!bookedUser;
 router.delete('/hold-slot', authenticateToken, async (req, res) => {
   try {
     const { turfId,sport ,  date, slot, adminId } = req.body;
+    console.log("DELETE BODY:", req.body);
 
     if (!turfId || !date || !slot || !adminId) {
       return res.status(400).json({ success: false, message: 'Missing fields' });
@@ -1573,6 +1574,7 @@ router.delete('/hold-slot', authenticateToken, async (req, res) => {
     }
 
     const adminUser = await Admin.findById(adminId);
+    console.log("BEFORE DELETE:", adminUser.currentTurf.heldSlots);
     if (!adminUser || !adminUser.currentTurf || adminUser.currentTurf.id !== turfId) {
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
@@ -1587,6 +1589,7 @@ router.delete('/hold-slot', authenticateToken, async (req, res) => {
     h.sport === sport
   )
 );
+console.log("AFTER DELETE:", adminUser.currentTurf.heldSlots);
 
     cleanInvalidTournaments(adminUser);
     await adminUser.save();
