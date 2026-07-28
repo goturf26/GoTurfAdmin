@@ -1341,7 +1341,14 @@ const cleanInvalidTournaments = (adminDoc) => {
 // HOLD SINGLE SLOT - FIXED & SAFE
 router.post('/hold-slot', authenticateToken, async (req, res) => {
   try {
-    const { turfId, date, slot, adminId, reason = 'Held by admin' } = req.body;
+    const {
+  turfId,
+  sport,
+  date,
+  slot,
+  adminId,
+  reason = 'Held by admin'
+} = req.body;
 
     if (!turfId || !date || !slot || !adminId) {
       return res.status(400).json({
@@ -1460,6 +1467,7 @@ const isReserved = !!reservedSlot;
     turf.heldSlots = turf.heldSlots || [];
 
     turf.heldSlots.push({
+      sport,
       date,
       slot,
       reason,
@@ -1552,7 +1560,7 @@ const hasBookings = !!bookedUser;
 // UNHOLD SLOT - FIXED
 router.delete('/hold-slot', authenticateToken, async (req, res) => {
   try {
-    const { turfId, date, slot, adminId } = req.body;
+    const { turfId,sport ,  date, slot, adminId } = req.body;
 
     if (!turfId || !date || !slot || !adminId) {
       return res.status(400).json({ success: false, message: 'Missing fields' });
@@ -1569,9 +1577,14 @@ router.delete('/hold-slot', authenticateToken, async (req, res) => {
 
     const initialCount = adminUser.currentTurf.heldSlots?.length || 0;
 
-    adminUser.currentTurf.heldSlots = (adminUser.currentTurf.heldSlots || []).filter(
-      h => !(h.date === date && h.slot === slot)
-    );
+    adminUser.currentTurf.heldSlots =
+(adminUser.currentTurf.heldSlots || []).filter(
+  h => !(
+    h.date === date &&
+    h.slot === slot &&
+    h.sport === sport
+  )
+);
 
     cleanInvalidTournaments(adminUser);
     await adminUser.save();
