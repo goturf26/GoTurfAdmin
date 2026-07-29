@@ -94,9 +94,8 @@ const turfSchema = new mongoose.Schema({
 
   heldSlots: [{
   sport: {
-    type: String,
-    required: true,
-  },
+  type: String,
+},
   date: String,
   slot: String,
   reason: String,
