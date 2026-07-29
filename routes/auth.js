@@ -1405,19 +1405,17 @@ allHeldSlots.forEach((doc, index) => {
     const bookedUser = await User.findOne({
   upcomingBookings: {
     $elemMatch: {
-      turfId,
-      sport: sport.toUpperCase(),
-      status: {
-        $in: ['confirmed', 'completed']
-      },
+      turfId: turfId,
+      sport: new RegExp(`^${sport}$`, "i"),
+      status: { $in: ["confirmed", "completed"] },
       slots: {
         $elemMatch: {
-          date,
-          slot
-        }
-      }
-    }
-  }
+          date: date,
+          slot: slot,
+        },
+      },
+    },
+  },
 });
 
     const isBooked = !!bookedUser;
