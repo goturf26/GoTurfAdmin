@@ -1415,14 +1415,28 @@ console.log("Searching for:", {
     date,
     slot
 });
+console.log("======== HOLD SLOT CHECK ========");
 
+const docs = await heldSlotsCollection.find({}).toArray();
+
+console.log("Current heldslots:");
+console.dir(docs, { depth: null });
+
+console.log("Searching with:");
+console.log({
+    turfId,
+    date,
+    slot,
+    expiresAt: new Date()
+});
 const reservedSlot = await heldSlotsCollection.findOne({
   turfId,
   date,
   slot,
   expiresAt: { $gt: new Date() }
 });
-
+console.log("Found reserved slot:");
+console.dir(reservedSlot, { depth: null });
 if (reservedSlot) {
   return res.status(400).json({
     success: false,
