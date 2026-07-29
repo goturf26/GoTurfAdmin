@@ -723,7 +723,8 @@ users.forEach(user => {
 
             confirmedSlots.push({
                 date: slot.date,
-                slot: slot.slot
+                slot: slot.slot,
+                sport: booking.sport
             });
 
         });
@@ -1402,21 +1403,22 @@ allHeldSlots.forEach((doc, index) => {
 
     // Already confirmed booking?
     const bookedUser = await User.findOne({
-      upcomingBookings: {
+  upcomingBookings: {
+    $elemMatch: {
+      turfId,
+      sport: sport.toUpperCase(),
+      status: {
+        $in: ['confirmed', 'completed']
+      },
+      slots: {
         $elemMatch: {
-          turfId,
-          status: {
-            $in: ['confirmed', 'completed']
-          },
-          slots: {
-            $elemMatch: {
-              date,
-              slot
-            }
-          }
+          date,
+          slot
         }
       }
-    });
+    }
+  }
+});
 
     const isBooked = !!bookedUser;
     console.log("Searching for:");
