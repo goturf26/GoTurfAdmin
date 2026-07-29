@@ -1405,6 +1405,16 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     // Check if temporarily reserved (payment pending)
     // --------------------------------------------------
     const heldSlotsCollection = mongoose.connection.db.collection('heldslots');
+const allHeld = await heldSlotsCollection.find({}).toArray();
+
+console.log("All documents in heldslots:");
+console.log(allHeld);
+
+console.log("Searching for:", {
+    turfId,
+    date,
+    slot
+});
 
 const reservedSlot = await heldSlotsCollection.findOne({
   turfId,
