@@ -3,6 +3,7 @@ const router = express.Router();
 
 const Admin = require('../models/Admin');
 const User = require('../models/User');
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -11,6 +12,7 @@ const authenticateToken = require('../middleware/auth');
 const multer = require('multer');
 const { MongoClient } = require('mongodb');
 const mongoose = require('mongoose');
+
 const cron = require('node-cron');
 require('dotenv').config();
 
@@ -1343,15 +1345,15 @@ const cleanInvalidTournaments = (adminDoc) => {
 router.post('/hold-slot', authenticateToken, async (req, res) => {
   try {
     const {
-  turfId,
-  sport,
-  date,
-  slot,
-  adminId,
-  reason = 'Held by admin'
-} = req.body;
+      turfId,
+      sport,
+      date,
+      slot,
+      adminId,
+      reason = 'Held by admin'
+    } = req.body;
 
-    if (!turfId || !date || !slot || !adminId) {
+    if (!turfId || !sport || !date || !slot || !adminId) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -1379,67 +1381,18 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     }
 
     const turf = adminUser.currentTurf;
-    const heldSlotsCollection = mongoose.connection.collection('heldslots');
-    console.log("Mongo DB Name:", mongoose.connection.db.databaseName);
-
-const allHeldSlots = await heldSlotsCollection.find({}).toArray();
-
-console.log("HeldSlots count:", allHeldSlots.length);
-allHeldSlots.forEach((doc, index) => {
-    console.log(`HeldSlot ${index + 1}`);
-    console.log(doc);
-});
-
-    const now = new Date();
 
     // Already held by admin?
     const alreadyHeld =
       (turf.heldSlots || []).some(
-        h => h.date === date && h.slot === slot
+        h =>
+          h.date === date &&
+          h.slot === slot &&
+          h.sport === sport
       ) ||
       (turf.heldDays || []).some(
         d => d.date === date
       );
-
-    // Already confirmed booking?
-    const bookedUser = await User.findOne({
-  upcomingBookings: {
-    $elemMatch: {
-      turfId: turfId,
-      sport: new RegExp(`^${sport}$`, "i"),
-      status: { $in: ["confirmed", "completed"] },
-      slots: {
-        $elemMatch: {
-          date: date,
-          slot: slot,
-        },
-      },
-    },
-  },
-});
-
-    const isBooked = !!bookedUser;
-    console.log("Searching for:");
-console.log({
-    turfId,
-    date,
-    slot,
-    now
-});
-    const reservedSlot = await heldSlotsCollection.findOne({
-      
-  turfId,
-  date,
-  slot,
-  expiresAt: {
-    $gt: now
-  }
-});
-console.log("reservedSlot =", reservedSlot);
-
-const isReserved = !!reservedSlot;
-
-    
 
     if (alreadyHeld) {
       return res.status(400).json({
@@ -1448,25 +1401,52 @@ const isReserved = !!reservedSlot;
       });
     }
 
-    if (isBooked) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot hold: Slot already booked by user'
-      });
+    // --------------------------------------------------
+    // Check if temporarily reserved (payment pending)
+    // --------------------------------------------------
+    const heldSlotsCollection = mongoose.connection.db.collection('heldslots');
+
+const reservedSlot = await heldSlotsCollection.findOne({
+  turfId,
+  date,
+  slot,
+  expiresAt: { $gt: new Date() }
+});
+
+if (reservedSlot) {
+  return res.status(400).json({
+    success: false,
+    message: 'Cannot hold: Slot is currently reserved by a customer'
+  });
+}
+
+   const bookedUser = await User.findOne({
+  upcomingBookings: {
+    $elemMatch: {
+      turfId,
+      sport: new RegExp(`^${sport}$`, "i"),
+      status: { $in: ["confirmed", "completed"] },
+      slots: {
+        $elemMatch: {
+          date,
+          slot
+        }
+      }
     }
+  }
+});
 
-    
+if (bookedUser) {
+  return res.status(400).json({
+    success: false,
+    message: "Cannot hold: Slot already booked by user"
+  });
+}
 
-    if (isReserved) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot hold: Slot is currently reserved by a customer'
-      });
-    }
-
+    // --------------------------------------------------
+    // Hold slot
+    // --------------------------------------------------
     turf.heldSlots = turf.heldSlots || [];
-    console.log(req.body);
-console.log("Sport:", sport);
 
     turf.heldSlots.push({
       sport,
@@ -1481,7 +1461,7 @@ console.log("Sport:", sport);
 
     await adminUser.save();
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Slot held successfully'
     });
@@ -1489,7 +1469,7 @@ console.log("Sport:", sport);
   } catch (error) {
     console.error('Hold slot error:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Server error'
     });
