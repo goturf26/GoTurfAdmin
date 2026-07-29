@@ -1382,7 +1382,10 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
 
     const turf = adminUser.currentTurf;
 
+    // ===========================================
     // Already held by admin?
+    // ===========================================
+
     const alreadyHeld =
       (turf.heldSlots || []).some(
         h =>
@@ -1401,84 +1404,92 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
       });
     }
 
-    // --------------------------------------------------
-    // Check if temporarily reserved (payment pending)
-    // --------------------------------------------------
-    const heldSlotsCollection = mongoose.connection.db.collection('heldslots');
-const allHeld = await heldSlotsCollection.find({}).toArray();
+    // ===========================================
+    // CHECK HELDSLOT COLLECTION
+    // ===========================================
 
-console.log("All documents in heldslots:");
-console.log(allHeld);
+    const heldSlotsCollection =
+      mongoose.connection.db.collection("heldslots");
 
-console.log("Searching for:", {
-    turfId,
-    date,
-    slot
-});
-console.log("======== HOLD SLOT CHECK ========");
+    console.log("\n===============================");
+    console.log("===== ADMIN BACKEND DEBUG =====");
+    console.log("===============================");
 
-const docs = await heldSlotsCollection.find({}).toArray();
+    console.log("Database :", mongoose.connection.name);
+    console.log("Host     :", mongoose.connection.host);
+    console.log("Collection :", heldSlotsCollection.collectionName);
+    console.log("Mongo URI :", process.env.MONGODB_URI);
 
-console.log("Current heldslots:");
-console.dir(docs, { depth: null });
+    const allHeldSlots =
+      await heldSlotsCollection.find({}).toArray();
 
-console.log("Searching with:");
-console.log({
-    turfId,
-    date,
-    slot,
-    expiresAt: new Date()
-});
-const reservedSlot = await heldSlotsCollection.findOne({
-  turfId,
-  date,
-  slot,
-  expiresAt: { $gt: new Date() }
-});
-console.log("Found reserved slot:");
-console.dir(reservedSlot, { depth: null });
-if (reservedSlot) {
-  return res.status(400).json({
-    success: false,
-    message: 'Cannot hold: Slot is currently reserved by a customer'
-  });
-}
-console.log("Searching booking:");
-console.log({
-  turfId,
-  sport,
-  date,
-  slot
-});
+    console.log("\nAll HeldSlots:");
+    console.dir(allHeldSlots, { depth: null });
 
-   const bookedUser = await User.findOne({
-    
-  upcomingBookings: {
-    $elemMatch: {
+    console.log("\nSearching for:");
+    console.log({
       turfId,
-      sport: new RegExp(`^${sport}$`, "i"),
-      status: { $in: ["confirmed", "completed"] },
-      slots: {
+      sport,
+      date,
+      slot
+    });
+
+    const reservedSlot =
+      await heldSlotsCollection.findOne({
+        turfId,
+        date,
+        slot,
+        expiresAt: { $gt: new Date() }
+      });
+
+    console.log("\nFound Reserved Slot:");
+    console.dir(reservedSlot, { depth: null });
+
+    if (reservedSlot) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot hold: Slot is currently reserved by a customer"
+      });
+    }
+
+    // ===========================================
+    // CHECK CONFIRMED BOOKINGS
+    // ===========================================
+
+    console.log("\nSearching confirmed bookings...");
+
+    const bookedUser = await User.findOne({
+      upcomingBookings: {
         $elemMatch: {
-          date,
-          slot
+          turfId,
+          sport: new RegExp(`^${sport}$`, "i"),
+          status: {
+            $in: ["confirmed", "completed"]
+          },
+          slots: {
+            $elemMatch: {
+              date,
+              slot
+            }
+          }
         }
       }
+    });
+
+    console.log("Booked User:");
+    console.dir(bookedUser, { depth: null });
+
+    if (bookedUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot hold: Slot already booked by user"
+      });
     }
-  }
-});
-console.log("Booked User:", bookedUser);
 
-if (bookedUser) {
-  return res.status(400).json({
-    success: false,
-    message: "Cannot hold: Slot already booked by user"
-  });
-}
+    // ===========================================
+    // HOLD SLOT
+    // ===========================================
 
-    // --------------------------------------------------
-    // Hold slot
-    // --------------------------------------------------
     turf.heldSlots = turf.heldSlots || [];
 
     turf.heldSlots.push({
@@ -1494,17 +1505,20 @@ if (bookedUser) {
 
     await adminUser.save();
 
+    console.log("\nSlot successfully held by admin.");
+
     return res.json({
       success: true,
-      message: 'Slot held successfully'
+      message: "Slot held successfully"
     });
 
   } catch (error) {
-    console.error('Hold slot error:', error);
+    console.error("Hold slot error:");
+    console.error(error);
 
     return res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: "Server error"
     });
   }
 });
