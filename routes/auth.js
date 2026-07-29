@@ -1419,8 +1419,16 @@ if (reservedSlot) {
     message: 'Cannot hold: Slot is currently reserved by a customer'
   });
 }
+console.log("Searching booking:");
+console.log({
+  turfId,
+  sport,
+  date,
+  slot
+});
 
    const bookedUser = await User.findOne({
+    
   upcomingBookings: {
     $elemMatch: {
       turfId,
@@ -1435,6 +1443,7 @@ if (reservedSlot) {
     }
   }
 });
+console.log("Booked User:", bookedUser);
 
 if (bookedUser) {
   return res.status(400).json({
@@ -1626,15 +1635,46 @@ router.delete('/hold-day', authenticateToken, async (req, res) => {
 });
 router.get('/public/turf/:turfId/held-slots', async (req, res) => {
     try {
+
         const { turfId } = req.params;
-        const adminUser = await Admin.findOne({ 'currentTurf.id': turfId });
-        if (!adminUser || !adminUser.currentTurf) return res.status(404).json({ success: false, message: 'Turf not found' });
-        res.json({ success: true, heldSlots: adminUser.currentTurf.heldSlots || [], heldDays: adminUser.currentTurf.heldDays || [] });
+        const { sport } = req.query;
+
+        const adminUser = await Admin.findOne({
+            'currentTurf.id': turfId
+        });
+
+        if (!adminUser || !adminUser.currentTurf) {
+            return res.status(404).json({
+                success: false,
+                message: 'Turf not found'
+            });
+        }
+
+        let heldSlots = adminUser.currentTurf.heldSlots || [];
+
+        if (sport) {
+            heldSlots = heldSlots.filter(
+                h =>
+                    h.sport &&
+                    h.sport.toUpperCase() === sport.toUpperCase()
+            );
+        }
+
+        res.json({
+            success: true,
+            heldSlots,
+            heldDays: adminUser.currentTurf.heldDays || []
+        });
+
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Server error' });
+
+        res.status(500).json({
+            success: false,
+            message: 'Server error'
+        });
+
     }
 });
-
 // ——————————————————————————————————————
 // BOOKED CUSTOMERS — FINAL SMART VERSION (Handles Both Formats)
 // ——————————————————————————————————————
