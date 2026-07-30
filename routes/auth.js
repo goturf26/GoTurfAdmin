@@ -1431,11 +1431,7 @@ const count =
     await heldSlotsCollection.countDocuments({});
 
 console.log("HeldSlots Count:", count);
-const collections = await db.listCollections().toArray();
-console.log(
-  "Collections from useDb:",
-  collections.map(c => c.name)
-);
+
 
 const allHeldSlots =
     await heldSlotsCollection.find({}).toArray();
