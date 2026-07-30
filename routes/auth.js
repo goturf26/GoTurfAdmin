@@ -1427,8 +1427,17 @@ console.log(
     collections.map(c => c.name)
 );
 
-const count =
-    await heldSlotsCollection.countDocuments({});
+console.log("Database:", db.databaseName);
+
+const docs = await db.collection("heldslots").find({}).toArray();
+console.log("Docs:", docs);
+
+const docs2 = await mongoose.connection.db
+    .collection("heldslots")
+    .find({})
+    .toArray();
+
+console.log("Docs2:", docs2);
 
 console.log("HeldSlots Count:", count);
 
