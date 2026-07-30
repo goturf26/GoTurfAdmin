@@ -39,16 +39,7 @@ connectDB()
     console.error('❌ MongoDB Connection Failed:', err.message);
     process.exit(1);
   });
-  console.log("==================================");
-console.log("DATABASE:", mongoose.connection.db.databaseName);
-
-const adminDb = mongoose.connection.db.admin();
-
-const info = await adminDb.command({ hello: 1 });
-
-console.log("PRIMARY SERVER:", info.primary);
-
-console.log("==================================");
+  
 
 console.log('Registering routes at /api/admin');
 app.use('/api/admin', authRoutes);
