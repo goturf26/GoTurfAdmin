@@ -1408,8 +1408,8 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     // CHECK HELDSLOT COLLECTION
     // ===========================================
 
-    const heldSlotsCollection =
-    mongoose.connection.db.collection("heldslots");
+    const db = mongoose.connection.useDb("goturf");
+const heldSlotsCollection = db.collection("heldslots");
 
 console.log("\n===============================");
 console.log("===== ADMIN BACKEND DEBUG =====");
@@ -1431,6 +1431,11 @@ const count =
     await heldSlotsCollection.countDocuments({});
 
 console.log("HeldSlots Count:", count);
+const collections = await db.listCollections().toArray();
+console.log(
+  "Collections from useDb:",
+  collections.map(c => c.name)
+);
 
 const allHeldSlots =
     await heldSlotsCollection.find({}).toArray();
