@@ -1409,41 +1409,53 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     // ===========================================
 
     const heldSlotsCollection =
-      mongoose.connection.db.collection("heldslots");
+    mongoose.connection.db.collection("heldslots");
 
-    console.log("\n===============================");
-    console.log("===== ADMIN BACKEND DEBUG =====");
-    console.log("===============================");
+console.log("\n===============================");
+console.log("===== ADMIN BACKEND DEBUG =====");
+console.log("===============================");
 
-    console.log("Database :", mongoose.connection.name);
-    console.log("Host     :", mongoose.connection.host);
-    console.log("Collection :", heldSlotsCollection.collectionName);
-    console.log("Mongo URI :", process.env.MONGODB_URI);
+console.log("Database Name:", mongoose.connection.db.databaseName);
+console.log("Host:", mongoose.connection.host);
+console.log("Collection:", heldSlotsCollection.collectionName);
 
-    const allHeldSlots =
-      await heldSlotsCollection.find({}).toArray();
+const collections =
+    await mongoose.connection.db.listCollections().toArray();
 
-    console.log("\nAll HeldSlots:");
-    console.dir(allHeldSlots, { depth: null });
+console.log(
+    "Collections:",
+    collections.map(c => c.name)
+);
 
-    console.log("\nSearching for:");
-    console.log({
-      turfId,
-      sport,
-      date,
-      slot
-    });
+const count =
+    await heldSlotsCollection.countDocuments({});
 
-    const reservedSlot =
-      await heldSlotsCollection.findOne({
+console.log("HeldSlots Count:", count);
+
+const allHeldSlots =
+    await heldSlotsCollection.find({}).toArray();
+
+console.log("All HeldSlots:");
+console.dir(allHeldSlots, { depth: null });
+
+console.log("Searching For:");
+console.log({
+    turfId,
+    sport,
+    date,
+    slot
+});
+
+const reservedSlot =
+    await heldSlotsCollection.findOne({
         turfId,
         date,
         slot,
         expiresAt: { $gt: new Date() }
-      });
+    });
 
-    console.log("\nFound Reserved Slot:");
-    console.dir(reservedSlot, { depth: null });
+console.log("Reserved Slot:");
+console.dir(reservedSlot, { depth: null });
 
     if (reservedSlot) {
       return res.status(400).json({
