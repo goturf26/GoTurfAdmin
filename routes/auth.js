@@ -1439,7 +1439,6 @@ const docs2 = await mongoose.connection.db
 
 console.log("Docs2:", docs2);
 
-console.log("HeldSlots Count:", count);
 
 
 const allHeldSlots =
