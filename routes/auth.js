@@ -1423,12 +1423,12 @@ console.log("Database Name:", mongoose.connection.db.databaseName);
 console.log("Host:", mongoose.connection.host);
 console.log("Collection:", heldSlotsCollection.collectionName);
 
-const collections =
+const collections1 =
     await mongoose.connection.db.listCollections().toArray();
 
 console.log(
     "Collections:",
-    collections.map(c => c.name)
+    collections1.map(c => c.name)
 );
 
 console.log("Database:", db.databaseName);
