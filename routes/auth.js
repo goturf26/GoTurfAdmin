@@ -1447,23 +1447,44 @@ const allHeldSlots =
 console.log("All HeldSlots:");
 console.dir(allHeldSlots, { depth: null });
 
-console.log("Searching For:");
-console.log({
+console.log("\n========== MATCH TEST ==========");
+
+console.log("Incoming Request:");
+console.log(JSON.stringify({
     turfId,
     sport,
     date,
     slot
+}, null, 2));
+
+console.log("\n1. Find by turfId only");
+const test1 = await heldSlotsCollection.findOne({
+    turfId
 });
+console.dir(test1, { depth: null });
 
-const reservedSlot =
-    await heldSlotsCollection.findOne({
-        turfId,
-        date,
-        slot,
-        expiresAt: { $gt: new Date() }
-    });
+console.log("\n2. Find by turfId + date");
+const test2 = await heldSlotsCollection.findOne({
+    turfId,
+    date
+});
+console.dir(test2, { depth: null });
 
-console.log("Reserved Slot:");
+console.log("\n3. Find by turfId + date + slot");
+const test3 = await heldSlotsCollection.findOne({
+    turfId,
+    date,
+    slot
+});
+console.dir(test3, { depth: null });
+
+console.log("\n4. Original Query");
+const reservedSlot = await heldSlotsCollection.findOne({
+    turfId,
+    date,
+    slot,
+    expiresAt: { $gt: new Date() }
+});
 console.dir(reservedSlot, { depth: null });
 
     if (reservedSlot) {
