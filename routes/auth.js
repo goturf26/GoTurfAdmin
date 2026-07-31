@@ -1407,8 +1407,8 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     // ===========================================
     // CHECK HELDSLOT COLLECTION
     // ===========================================
-
-    const db = mongoose.connection.db;
+console.log("Connection readyState:", mongoose.connection.readyState);
+const db = mongoose.connection.db;
 const heldSlotsCollection = db.collection("heldslots");
 console.log("Database:", db.databaseName);
 
