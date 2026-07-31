@@ -1408,8 +1408,12 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     // CHECK HELDSLOT COLLECTION
     // ===========================================
 
-    const db = mongoose.connection.useDb("goturf");
+    const db = mongoose.connection.db;
 const heldSlotsCollection = db.collection("heldslots");
+console.log("Database:", db.databaseName);
+
+const collections = await db.listCollections().toArray();
+console.log("Collections:", collections.map(c => c.name));
 
 console.log("\n===============================");
 console.log("===== ADMIN BACKEND DEBUG =====");
