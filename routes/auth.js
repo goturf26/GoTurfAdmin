@@ -1569,6 +1569,22 @@ console.dir(reservedSlot, { depth: null });
   }
 });
 
+router.get('/debug/test-write-read', async (req, res) => {
+  const testDoc = { turfId: 'DEBUG_TEST', date: '2099-01-01', slot: 'TEST', expiresAt: new Date(Date.now() + 60000) };
+
+  const db = mongoose.connection.db;
+  await db.collection('heldslots').insertOne(testDoc);
+
+  const readBack = await db.collection('heldslots').findOne({ turfId: 'DEBUG_TEST' });
+
+  res.json({
+    databaseName: db.databaseName,
+    host: mongoose.connection.host,
+    wroteDoc: testDoc,
+    readBack
+  });
+});
+
 // HOLD FULL DAY - FIXED
 router.post('/hold-day', authenticateToken, async (req, res) => {
   try {
