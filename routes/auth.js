@@ -710,7 +710,7 @@ router.get('/turf/:turfId', authenticateToken, async (req, res) => {
         const users = await User.find({
     'upcomingBookings.turfId': turfId,
     'upcomingBookings.status': {
-        $in: ['confirmed', 'completed']
+        $in: ['reserved', 'confirmed', 'completed']
     }
 }).select('upcomingBookings').lean();
 
@@ -1569,22 +1569,6 @@ console.dir(reservedSlot, { depth: null });
   }
 });
 
-router.get('/debug/test-write-read', async (req, res) => {
-  const testDoc = { turfId: 'DEBUG_TEST', date: '2099-01-01', slot: 'TEST', expiresAt: new Date(Date.now() + 60000) };
-
-  const db = mongoose.connection.db;
-  await db.collection('heldslots').insertOne(testDoc);
-
-  const readBack = await db.collection('heldslots').findOne({ turfId: 'DEBUG_TEST' });
-
-  res.json({
-    databaseName: db.databaseName,
-    host: mongoose.connection.host,
-    wroteDoc: testDoc,
-    readBack
-  });
-});
-
 // HOLD FULL DAY - FIXED
 router.post('/hold-day', authenticateToken, async (req, res) => {
   try {
@@ -1614,7 +1598,7 @@ router.post('/hold-day', authenticateToken, async (req, res) => {
   upcomingBookings: {
     $elemMatch: {
       turfId,
-      status: { $in: ['confirmed', 'completed'] },
+      status: { $in: ['reserved', 'confirmed', 'completed'] },
       slots: {
         $elemMatch: {
           date
@@ -1788,7 +1772,7 @@ router.get('/booked-users/:turfId', authenticateToken, async (req, res) => {
     if (isSuperAdmin) {
       users = await User.find({
         'upcomingBookings.turfId': turfId,
-        'upcomingBookings.status': { $in: ['confirmed', 'completed'] }
+        'upcomingBookings.status': { $in: ['reserved', 'confirmed', 'completed'] }
       })
       .select('userName phone upcomingBookings')
       .lean();
@@ -1800,7 +1784,7 @@ router.get('/booked-users/:turfId', authenticateToken, async (req, res) => {
       }
       users = await User.find({
         'upcomingBookings.turfId': turfId,
-        'upcomingBookings.status': { $in: ['confirmed', 'completed'] }
+        'upcomingBookings.status': { $in: ['reserved', 'confirmed', 'completed'] }
       })
       .select('userName phone upcomingBookings')
       .lean();
