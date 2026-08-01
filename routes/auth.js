@@ -28,14 +28,11 @@ const { initializeApp, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 
-console.log("🔥 [FIREBASE] Initialization Starting...");
-console.log("FIREBASE_SERVICE_ACCOUNT length:", process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0);
-
 let firebaseInitialized = false;
 
 try {
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-        console.log("✅ [FIREBASE] Parsing JSON...");
+        
 
         const serviceAccount = JSON.parse(
           process.env.FIREBASE_SERVICE_ACCOUNT
@@ -45,15 +42,15 @@ try {
           credential: cert(serviceAccount)
         });
 
-        console.log("✅ Firebase initialized");
+       
 
         firebaseInitialized = true;
     } else {
-        console.log("No service account");
+        
     }
 }
-catch(err){
-   console.log(err);
+catch (err) {
+    console.error("Firebase initialization failed:", err);
 }
 
 const initializeFirebase = () => firebaseInitialized;
@@ -192,17 +189,12 @@ function escapeRegExp(string) {
 }
 
 router.post('/login', async (req, res) => {
-    console.log('🔥 [LOGIN ROUTE HIT] Full Body:', JSON.stringify(req.body));
+    
 
     const name = req.body.name?.trim();
     const email = req.body.email?.trim().toLowerCase();
     const rawPassword = req.body.password;
     const password = rawPassword ? rawPassword.trim() : null;
-
-    console.log('Name received:', name);
-    console.log('Email received:', email);
-    console.log('Password length:', password ? password.length : 0);
-    // console.log('Raw Password:', rawPassword); // Uncomment for extreme debugging only!
 
     // Validation
     if (!password) { // Use the trimmed version for validation
@@ -224,7 +216,6 @@ router.post('/login', async (req, res) => {
 
         // Step 1: Try to find by NAME (case-insensitive exact match)
         if (name) {
-            console.log('Searching admin by name:', name);
             adminUser = await Admin.findOne({
                 name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
             });
@@ -232,27 +223,23 @@ router.post('/login', async (req, res) => {
 
         // Step 2: If not found by name, try by EMAIL
         if (!adminUser && email) {
-            console.log('Searching admin by email:', email);
+            
             adminUser = await Admin.findOne({ email });
         }
 
         // Step 3: No user found
         if (!adminUser) {
-            console.log('No admin found with provided name/email');
+          
             return res.status(400).json({
                 success: false,
                 message: 'Invalid name or email'
             });
         }
 
-        console.log('Admin found:', adminUser.name, adminUser.email);
+        
 
         // Step 4: Compare password (now consistently trimmed)
         let isMatch = await bcrypt.compare(password, adminUser.password);
-        console.log('Password match?', isMatch);
-
-        // ❌ NOTE: The brittle fallback and auto-fix logic is REMOVED 
-        // because the password is now trimmed at the start of the function.
 
         if (!isMatch) {
             return res.status(400).json({
@@ -273,9 +260,6 @@ router.post('/login', async (req, res) => {
             process.env.REFRESH_TOKEN_SECRET,
             { expiresIn: '90d' }
         );
-
-        // Step 6: SUCCESS
-        console.log('LOGIN SUCCESSFUL:', adminUser.name);
         
 
         res.json({
@@ -301,17 +285,13 @@ router.post('/login', async (req, res) => {
     }
 });
 router.post('/google-login', async (req, res) => {
-    console.log('\n========== GOOGLE LOGIN START ==========');
-
+    
     try {
         const { idToken } = req.body;
 
         if (!idToken) {
             return res.status(400).json({ success: false, message: 'ID Token is required' });
         }
-
-        console.log('✅ ID Token received');
-        console.log('Firebase Initialized Status:', firebaseInitialized);
 
         if (!firebaseInitialized) {
             return res.status(500).json({ 
@@ -321,8 +301,6 @@ router.post('/google-login', async (req, res) => {
         }
 
         const decoded = await getAuth().verifyIdToken(idToken);
-
-        console.log('✅ Token verified for:', decoded.email);
 
         const adminUser = await Admin.findOne({ email: decoded.email?.toLowerCase() });
 
@@ -342,8 +320,6 @@ router.post('/google-login', async (req, res) => {
             { expiresIn: '90d' }
         );
 
-        console.log('✅ GOOGLE LOGIN SUCCESS');
-
         return res.json({
             success: true,
             message: 'Google login successful',
@@ -359,10 +335,7 @@ router.post('/google-login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('\n========== GOOGLE LOGIN ERROR ==========');
-        console.error('Error:', error.message);
-        console.error('Stack:', error.stack);
-        console.error('========================================\n');
+        console.error('Google login error:', error);
 
         return res.status(500).json({
             success: false,
@@ -373,11 +346,6 @@ router.post('/google-login', async (req, res) => {
 router.post('/signup', async (req, res) => {
   const { name, email, phone, password } = req.body;
 
-  console.log('\nSIGNUP ATTEMPT');
-  console.log('Name:', name);
-  console.log('Email:', email);
-  console.log('Phone:', phone);
-  console.log('Password length:', password?.length || 0);
 
   try {
     // 1. Validate required fields
@@ -410,10 +378,10 @@ router.post('/signup', async (req, res) => {
 
     // 3. CRITICAL FIX: Trim password to remove accidental leading/trailing whitespace
     const cleanPassword = password.trim();
-    console.log('Clean password length after trim:', cleanPassword.length);
+    
 
     const hashedPassword = await bcrypt.hash(cleanPassword, 10);
-    console.log('Password hashed successfully');
+    
 
     // 4. Create admin with HASHED password
     const newAdmin = new Admin({
@@ -425,7 +393,7 @@ router.post('/signup', async (req, res) => {
     });
 
     await newAdmin.save();
-    console.log('New admin saved with name:', newAdmin.name);
+  
 
     // 5. Generate tokens
     const token = jwt.sign(
@@ -642,7 +610,7 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
         adminUser.currentTurf = turfData;
         await adminUser.save();
 
-        console.log(`Turf registered successfully: ${turfId} by ${adminId} | Image URL: ${imageUrl}`);
+        
 
         res.status(201).json({
             success: true,
@@ -758,8 +726,7 @@ users.forEach(user => {
 });
 // USER APP: Get slot availability for a specific date - FINAL WORKING VERSION
 router.get('/turf/:turfId/slots', async (req, res) => {
-  console.log(`SLOTS REQUEST: ${req.params.turfId} | Date: ${req.query.date}`);
-
+  
   try {
     const { turfId } = req.params;
     const { date } = req.query;
@@ -790,7 +757,6 @@ router.get('/turf/:turfId/slots', async (req, res) => {
 
     const dayHeld = (turf.heldDays || []).some(d => d.date === date);
 
-    console.log(`Found ${heldSlotsForDate.length} held slots for ${date}`);
 
     res.json({
       success: true,
@@ -857,7 +823,7 @@ router.get('/dashboard/:adminId/:turfId', authenticateToken, async (req, res) =>
 });
 // ==================== ROUTE: UPDATE TURF IMAGE - CLOUDINARY VERSION ====================
 router.post('/update-turf-image', authenticateToken, upload.single('image'), handleMulterError, async (req, res) => {
-    console.log('[/update-turf-image] Cloudinary upload started');
+    
 
     try {
         if (!req.file) {
@@ -884,8 +850,6 @@ router.post('/update-turf-image', authenticateToken, upload.single('image'), han
 
         adminUser.currentTurf.imageUrl = imageUrl;
         await adminUser.save();
-
-        console.log('Turf image updated successfully to Cloudinary:', imageUrl);
 
         res.json({
             success: true,
@@ -968,7 +932,7 @@ router.get('/turfs', authenticateToken, async (req, res) => {
         ownerName: a.name || 'Unknown'
       }));
 
-      console.log(`Super admin requested turfs → found ${turfsData.length}`);
+     
     } else {
       // Normal admin - own turf only
       const adminUser = await Admin.findById(req.admin.id);
@@ -1000,7 +964,7 @@ router.get('/turfs', authenticateToken, async (req, res) => {
 
 // FINAL CREATE TOURNAMENT WITH CLOUDINARY
 router.post('/create-tournament', authenticateToken, async (req, res) => {
-    console.log('=== CREATE TOURNAMENT CALLED ===');
+    
 
     try {
         const {
@@ -1029,7 +993,7 @@ router.post('/create-tournament', authenticateToken, async (req, res) => {
                     transformation: [{ width: 800, height: 600, crop: 'limit' }]
                 });
                 imageUrl = uploadResult.secure_url;
-                console.log('✅ Tournament poster uploaded to Cloudinary:', imageUrl);
+                
             } catch (imgErr) {
                 console.error('Cloudinary upload failed:', imgErr.message);
                 imageUrl = ''; // fallback
@@ -1120,8 +1084,6 @@ router.get('/admin/tournament/:tournamentId/teams', authenticateToken, async (re
     const { tournamentId } = req.params;
     const adminId = req.admin.id;
 
-    console.log(`[Teams Request] Admin: ${adminId} | Tournament: ${tournamentId}`);
-
     // Find the admin who owns this tournament
     const adminUser = await Admin.findOne({
       _id: adminId,
@@ -1182,7 +1144,6 @@ router.get('/tournament/:tournamentId/teams', authenticateToken, async (req, res
         const { tournamentId } = req.params;
         const adminId = req.admin.id;
 
-        console.log(`Fetching teams | Admin: ${adminId} | Tournament: ${tournamentId}`);
 
         // Find admin with currentTurf containing this tournamentId
         const adminUser = await Admin.findOne({
@@ -1202,9 +1163,7 @@ router.get('/tournament/:tournamentId/teams', authenticateToken, async (req, res
             return res.status(404).json({ success: false, message: 'Tournament not found' });
         }
         const teams = tournament.registeredTeams || [];
-        console.log("TOURNAMENT FOUND:", tournament);
-        console.log("REGISTERED TEAMS:", tournament.registeredTeams);
-        console.log("TEAMS LENGTH:", teams.length);
+        ;
 
 
 
@@ -1423,9 +1382,7 @@ const reservedSlot = await db.collection("heldslots").findOne({
     expiresAt: { $gt: new Date() }
 });
 
-console.log("Reserved Slot:", reservedSlot);
 
-    console.log("Reserved Slot:", reservedSlot);
 
     if (reservedSlot) {
       return res.status(409).json({
@@ -1562,7 +1519,6 @@ const hasBookings = !!bookedUser;
 router.delete('/hold-slot', authenticateToken, async (req, res) => {
   try {
     const { turfId,sport ,  date, slot, adminId } = req.body;
-    console.log("DELETE BODY:", req.body);
 
     if (!turfId || !date || !slot || !adminId) {
       return res.status(400).json({ success: false, message: 'Missing fields' });
@@ -1573,7 +1529,7 @@ router.delete('/hold-slot', authenticateToken, async (req, res) => {
     }
 
     const adminUser = await Admin.findById(adminId);
-    console.log("BEFORE DELETE:", adminUser.currentTurf.heldSlots);
+    
     if (!adminUser || !adminUser.currentTurf || adminUser.currentTurf.id !== turfId) {
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
@@ -1588,7 +1544,7 @@ router.delete('/hold-slot', authenticateToken, async (req, res) => {
     h.sport === sport
   )
 );
-console.log("AFTER DELETE:", adminUser.currentTurf.heldSlots);
+
 
     cleanInvalidTournaments(adminUser);
     await adminUser.save();
@@ -1848,7 +1804,6 @@ router.get('/turf/:turfId/gallery', authenticateToken, verifyTurfOwner, async (r
 
     const gallery = adminUser.currentTurf.gallery || [];
     
-    console.log(`📸 Returning ${gallery.length} gallery images for turf ${req.params.turfId}`);
 
     res.json({ 
       success: true, 
@@ -1908,8 +1863,6 @@ router.post('/turf/:turfId/gallery/upload', authenticateToken, verifyTurfOwner, 
     if (!updatedAdmin) {
       return res.status(404).json({ success: false, message: 'Turf not found' });
     }
-
-    console.log(`✅ Gallery image pushed successfully. Total images now: ${updatedAdmin.currentTurf.gallery?.length || 0}`);
 
     res.json({
       success: true,

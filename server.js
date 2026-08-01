@@ -8,12 +8,6 @@ const path = require('path');
 // Simple dotenv for Render
 require('dotenv').config();
 
-console.log('=== ENVIRONMENT CHECK ===');
-console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✅ Present' : '❌ Missing');
-console.log('MONGODB_URI:', process.env.MONGODB_URI ? '✅ Present' : '❌ Missing');
-console.log('FIREBASE_SERVICE_ACCOUNT:', process.env.FIREBASE_SERVICE_ACCOUNT ? '✅ Present (Length: ' + process.env.FIREBASE_SERVICE_ACCOUNT.length + ')' : '❌ Missing');
-console.log('========================');
-
 const app = express();
 
 app.use(cors({
@@ -41,7 +35,6 @@ connectDB()
   });
   
 
-console.log('Registering routes at /api/admin');
 app.use('/api/admin', authRoutes);
 
 app.get('/', (req, res) => res.send('Turf Backend Running'));
