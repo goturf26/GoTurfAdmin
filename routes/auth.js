@@ -1483,6 +1483,46 @@ const test3 = await heldSlotsCollection.findOne({
 console.dir(test3, { depth: null });
 
 console.log("\n4. Original Query");
+console.log("\n========== DEBUG START ==========");
+
+console.log("Incoming Request");
+console.log({
+    turfId,
+    date,
+    slot,
+    sport
+});
+
+const firstDoc = await heldSlotsCollection.findOne({});
+
+console.log("\nFirst document in heldslots");
+console.dir(firstDoc, { depth: null });
+
+if (firstDoc) {
+    console.log("\nField Comparison");
+
+    console.log("turfId:");
+    console.log("Incoming :", `"${turfId}"`);
+    console.log("Database :", `"${firstDoc.turfId}"`);
+    console.log("Equal    :", turfId === firstDoc.turfId);
+
+    console.log("\ndate:");
+    console.log("Incoming :", `"${date}"`);
+    console.log("Database :", `"${firstDoc.date}"`);
+    console.log("Equal    :", date === firstDoc.date);
+
+    console.log("\nslot:");
+    console.log("Incoming :", `"${slot}"`);
+    console.log("Database :", `"${firstDoc.slot}"`);
+    console.log("Equal    :", slot === firstDoc.slot);
+
+    console.log("\nsport:");
+    console.log("Incoming :", `"${sport}"`);
+    console.log("Database :", `"${firstDoc.sport}"`);
+    console.log("Equal    :", sport === firstDoc.sport);
+}
+
+console.log("========== DEBUG END ==========\n");
 const reservedSlot = await heldSlotsCollection.findOne({
     turfId,
     date,
