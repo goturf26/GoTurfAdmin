@@ -1353,6 +1353,9 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
       reason = 'Held by admin'
     } = req.body;
 
+    // ===========================
+    // Validate Request
+    // ===========================
     if (!turfId || !sport || !date || !slot || !adminId) {
       return res.status(400).json({
         success: false,
@@ -1367,6 +1370,9 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
       });
     }
 
+    // ===========================
+    // Find Admin & Turf
+    // ===========================
     const adminUser = await Admin.findById(adminId);
 
     if (
@@ -1382,16 +1388,16 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
 
     const turf = adminUser.currentTurf;
 
-    // ===========================================
-    // Already held by admin?
-    // ===========================================
-
+    // ===========================
+    // Check if Admin already held it
+    // ===========================
     const alreadyHeld =
       (turf.heldSlots || []).some(
         h =>
           h.date === date &&
           h.slot === slot &&
-          h.sport === sport
+          h.sport &&
+          h.sport.toUpperCase() === sport.toUpperCase()
       ) ||
       (turf.heldDays || []).some(
         d => d.date === date
@@ -1400,159 +1406,40 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     if (alreadyHeld) {
       return res.status(400).json({
         success: false,
-        message: 'Slot already held'
+        message: 'Slot already held by admin'
       });
     }
 
-    // ===========================================
-    // CHECK HELDSLOT COLLECTION
-    // ===========================================
-console.log("Connection readyState:", mongoose.connection.readyState);
-const db = mongoose.connection.db;
-const heldSlotsCollection = db.collection("heldslots");
-console.log("Database:", db.databaseName);
+    // ===========================
+    // Check User Reserved Slots
+    // ===========================
+    const reservedSlot = await HeldSlot.findOne({
+      turfId,
+      date,
+      slot,
+      sport: sport.toUpperCase(),
+      expiresAt: { $gt: new Date() }
+    }).lean();
 
-const collections = await db.listCollections().toArray();
-console.log("Collections:", collections.map(c => c.name));
-
-console.log("\n===============================");
-console.log("===== ADMIN BACKEND DEBUG =====");
-console.log("===============================");
-
-console.log("Database Name:", mongoose.connection.db.databaseName);
-console.log("Host:", mongoose.connection.host);
-console.log("Collection:", heldSlotsCollection.collectionName);
-
-const collections1 =
-    await mongoose.connection.db.listCollections().toArray();
-
-console.log(
-    "Collections:",
-    collections1.map(c => c.name)
-);
-
-console.log("Database:", db.databaseName);
-
-const docs = await db.collection("heldslots").find({}).toArray();
-console.log("Docs:", docs);
-
-const docs2 = await mongoose.connection.db
-    .collection("heldslots")
-    .find({})
-    .toArray();
-
-console.log("Docs2:", docs2);
-
-
-
-const allHeldSlots =
-    await heldSlotsCollection.find({}).toArray();
-
-console.log("All HeldSlots:");
-console.dir(allHeldSlots, { depth: null });
-
-console.log("\n========== MATCH TEST ==========");
-
-console.log("Incoming Request:");
-console.log(JSON.stringify({
-    turfId,
-    sport,
-    date,
-    slot
-}, null, 2));
-
-console.log("\n1. Find by turfId only");
-const test1 = await heldSlotsCollection.findOne({
-    turfId
-});
-console.dir(test1, { depth: null });
-
-console.log("\n2. Find by turfId + date");
-const test2 = await heldSlotsCollection.findOne({
-    turfId,
-    date
-});
-console.dir(test2, { depth: null });
-
-console.log("\n3. Find by turfId + date + slot");
-const test3 = await heldSlotsCollection.findOne({
-    turfId,
-    date,
-    slot
-});
-console.dir(test3, { depth: null });
-
-console.log("\n4. Original Query");
-console.log("\n========== DEBUG START ==========");
-
-console.log("Incoming Request");
-console.log({
-    turfId,
-    date,
-    slot,
-    sport
-});
-
-const firstDoc = await heldSlotsCollection.findOne({});
-
-console.log("\nFirst document in heldslots");
-console.dir(firstDoc, { depth: null });
-
-if (firstDoc) {
-    console.log("\nField Comparison");
-
-    console.log("turfId:");
-    console.log("Incoming :", `"${turfId}"`);
-    console.log("Database :", `"${firstDoc.turfId}"`);
-    console.log("Equal    :", turfId === firstDoc.turfId);
-
-    console.log("\ndate:");
-    console.log("Incoming :", `"${date}"`);
-    console.log("Database :", `"${firstDoc.date}"`);
-    console.log("Equal    :", date === firstDoc.date);
-
-    console.log("\nslot:");
-    console.log("Incoming :", `"${slot}"`);
-    console.log("Database :", `"${firstDoc.slot}"`);
-    console.log("Equal    :", slot === firstDoc.slot);
-
-    console.log("\nsport:");
-    console.log("Incoming :", `"${sport}"`);
-    console.log("Database :", `"${firstDoc.sport}"`);
-    console.log("Equal    :", sport === firstDoc.sport);
-}
-
-console.log("========== DEBUG END ==========\n");
-const reservedSlot = await HeldSlot.findOne({
-    turfId,
-    date,
-    slot,
-    expiresAt: { $gt: new Date() }
-});
-
-console.log("Reserved Slot:");
-console.dir(reservedSlot, { depth: null });
+    console.log("Reserved Slot:", reservedSlot);
 
     if (reservedSlot) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: "Cannot hold: Slot is currently reserved by a customer"
+        message: 'Cannot hold: Slot is currently reserved by a customer'
       });
     }
 
-    // ===========================================
-    // CHECK CONFIRMED BOOKINGS
-    // ===========================================
-
-    console.log("\nSearching confirmed bookings...");
-
+    // ===========================
+    // Check Confirmed Bookings
+    // ===========================
     const bookedUser = await User.findOne({
       upcomingBookings: {
         $elemMatch: {
           turfId,
           sport: new RegExp(`^${sport}$`, "i"),
           status: {
-            $in: ["confirmed", "completed"]
+            $in: ["reserved", "confirmed", "completed"]
           },
           slots: {
             $elemMatch: {
@@ -1562,26 +1449,22 @@ console.dir(reservedSlot, { depth: null });
           }
         }
       }
-    });
-
-    console.log("Booked User:");
-    console.dir(bookedUser, { depth: null });
+    }).lean();
 
     if (bookedUser) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: "Cannot hold: Slot already booked by user"
+        message: 'Cannot hold: Slot already booked by customer'
       });
     }
 
-    // ===========================================
-    // HOLD SLOT
-    // ===========================================
-
+    // ===========================
+    // Hold Slot
+    // ===========================
     turf.heldSlots = turf.heldSlots || [];
 
     turf.heldSlots.push({
-      sport,
+      sport: sport.toUpperCase(),
       date,
       slot,
       reason,
@@ -1593,20 +1476,17 @@ console.dir(reservedSlot, { depth: null });
 
     await adminUser.save();
 
-    console.log("\nSlot successfully held by admin.");
-
     return res.json({
       success: true,
-      message: "Slot held successfully"
+      message: 'Slot held successfully'
     });
 
   } catch (error) {
-    console.error("Hold slot error:");
-    console.error(error);
+    console.error("Hold Slot Error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Server error"
+      message: 'Server error'
     });
   }
 });
