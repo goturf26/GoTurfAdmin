@@ -1413,13 +1413,17 @@ router.post('/hold-slot', authenticateToken, async (req, res) => {
     // ===========================
     // Check User Reserved Slots
     // ===========================
-    const reservedSlot = await HeldSlot.findOne({
-      turfId,
-      date,
-      slot,
-      sport: sport.toUpperCase(),
-      expiresAt: { $gt: new Date() }
-    }).lean();
+    const db = mongoose.connection.db;
+
+const reservedSlot = await db.collection("heldslots").findOne({
+    turfId,
+    date,
+    slot,
+    sport: sport.toUpperCase(),
+    expiresAt: { $gt: new Date() }
+});
+
+console.log("Reserved Slot:", reservedSlot);
 
     console.log("Reserved Slot:", reservedSlot);
 
