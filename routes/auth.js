@@ -1523,12 +1523,14 @@ if (firstDoc) {
 }
 
 console.log("========== DEBUG END ==========\n");
-const reservedSlot = await heldSlotsCollection.findOne({
+const reservedSlot = await HeldSlot.findOne({
     turfId,
     date,
     slot,
     expiresAt: { $gt: new Date() }
 });
+
+console.log("Reserved Slot:");
 console.dir(reservedSlot, { depth: null });
 
     if (reservedSlot) {
