@@ -502,7 +502,20 @@ router.post('/update-bank-details', authenticateToken, async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Bank details updated successfully',
-      data: updatedAdmin.bankDetails,
+      data: {
+  bankName: updatedAdmin.bankDetails.bankName,
+  branch: updatedAdmin.bankDetails.branch,
+  bankFirstName: updatedAdmin.bankDetails.bankFirstName,
+  bankLastName: updatedAdmin.bankDetails.bankLastName,
+  address: updatedAdmin.bankDetails.address,
+  city: updatedAdmin.bankDetails.city,
+  region: updatedAdmin.bankDetails.region,
+  accountNumber: `******${updatedAdmin.bankDetails.accountNumber.slice(-4)}`,
+  ifscCode: `******${updatedAdmin.bankDetails.ifscCode.slice(-4)}`,
+  zipCode: updatedAdmin.bankDetails.zipCode,
+  accountType: updatedAdmin.bankDetails.accountType,
+  upiId: updatedAdmin.bankDetails.upiId
+}
     });
   } catch (error) {
     console.error('Update bank details error:', error);
