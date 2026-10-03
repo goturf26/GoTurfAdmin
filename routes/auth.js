@@ -565,8 +565,8 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Image is required' });
         }
-        if (!turfName || !district || !turfAddress || !sports || !pricePerHour || !gstin || !license) {
-            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        if (!turfName || !district || !turfAddress || !sports || !pricePerHour) {
+          return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
         // Cloudinary Full URL
@@ -601,8 +601,8 @@ router.post('/add-turf', authenticateToken, upload.single('image'), handleMulter
             hasWashroom: parseBool(hasWashroom),
             hasParking: parseBool(hasParking),
             hasDrinkingFacilities: parseBool(hasDrinkingFacilities),
-            gstin: gstin.trim(),
-            license: license.trim(),
+            gstin: gstin?.trim() || '',
+            license: license?.trim() || '',
             imageUrl: imageUrl,        // ← Full Cloudinary URL
             heldSlots: [],
             heldDays: [],
