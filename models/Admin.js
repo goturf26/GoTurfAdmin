@@ -59,15 +59,16 @@ const turfSchema = new mongoose.Schema({
     default: false,
   },
   gstin: {
-    type: String,
-    required: [true, 'GSTIN is required'],
-    match: [/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/, 'Invalid GSTIN format'],
-  },
-  license: {
-    type: String,
-    required: [true, 'License is required'],
-    match: [/^IN-GOV/, 'License must start with IN-GOV'],
-  },
+  type: String,
+  default: '',
+  match: [/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/, 'Invalid GSTIN format'],
+},
+
+license: {
+  type: String,
+  default: '',
+  match: [/^IN-GOV/, 'License must start with IN-GOV'],
+},
   imageUrl: String,
 
   gallery: {
